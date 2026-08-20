@@ -1,0 +1,44 @@
+{
+  "name": "osiyotravertin-qarzdaftari",
+  "version": "1.0.0",
+  "description": "Osiyo Travertin — Qarz Daftari (mijozlar qarz/to'lov hisobi)",
+  "main": "main.js",
+  "author": "Osiyo Travertin",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.osiyotravertin.qarzdaftari",
+    "productName": "Osiyo Travertin - Qarz Daftari",
+    "files": [
+      "main.js",
+      "index.html",
+      "build/icon.ico"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Osiyo Travertin - Qarz Daftari"
+    }
+  }
+}
