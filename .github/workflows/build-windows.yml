@@ -1,0 +1,49 @@
+name: Build Windows installer (Electron)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "main.js"
+      - "index.html"
+      - "package.json"
+      - "build/**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Kutubxonalarni o'rnatish
+        run: npm install
+
+      - name: Windows installer (.exe) yig'ish
+        run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Natijani saqlash (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OsiyoTravertin-QarzDaftari-Setup
+          path: dist/*.exe
+
+      - name: Release'ga qo'shish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: electron-v1.0
+          name: "Qarz Daftari (Electron) v1.0"
+          body: "Windows 10/11 uchun o'rnatuvchi (.exe) — ish stoliga va Start menyusiga yorliq qo'yadi, o'chirish (uninstall) imkoniyati bilan."
+          files: dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
