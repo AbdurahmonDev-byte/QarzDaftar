@@ -347,9 +347,56 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     color:var(--navy);
     font-family:inherit;
   }
+
+  /* ============ YANGI: mobil (telefon) uchun moslashuvchan (responsive) ko'rinish ============
+     Bu qoidalar faqat tor ekranlarda (masalan telefon, <=760px) ishga tushadi.
+     Windows dasturi oynasi hech qachon 900px'dan tor bo'lmagani uchun (main.js'da
+     minWidth:900), bu blok Electron/desktop ko'rinishiga hech qanday ta'sir qilmaydi —
+     faqat Android (Capacitor) ilovasida foydali bo'ladi. */
+  #mobile-topbar{
+    display:none;
+    position:fixed; top:0; left:0; right:0; height:52px;
+    background:var(--white); border-bottom:1px solid var(--border);
+    align-items:center; padding:0 10px; gap:10px; z-index:35;
+  }
+  #mobile-topbar .name{font-size:15px; font-weight:700; color:var(--gold-dark); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  #mobile-menu-btn{font-size:20px; line-height:1; padding:8px 12px;}
+  #sidebar-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:38;
+  }
+  #sidebar-backdrop.show{display:block;}
+  @media (max-width: 760px){
+    #mobile-topbar{display:flex;}
+    #sidebar{
+      position:fixed; top:0; left:0; bottom:0;
+      width:84vw; max-width:320px;
+      transform:translateX(-100%);
+      transition:transform 0.22s ease;
+      z-index:39;
+      box-shadow:2px 0 20px rgba(0,0,0,0.3);
+    }
+    #sidebar.open{transform:translateX(0);}
+    #app{display:block;}
+    #main{padding:66px 14px 24px 14px; height:100vh; box-sizing:border-box;}
+    .stat-grid{gap:10px;}
+    .stat-card{min-width:130px; padding:14px 16px;}
+    .customer-header{flex-direction:column; gap:12px;}
+    .customer-header .balance-box{text-align:left;}
+    .actions-row{flex-wrap:wrap;}
+    .actions-row-right{flex-wrap:wrap;}
+    .modal-box{width:92vw; padding:20px;}
+    .panel table{display:block; overflow-x:auto; -webkit-overflow-scrolling:touch;}
+    .panel table thead, .panel table tbody{display:table; width:100%; min-width:560px;}
+  }
 </style>
 </head>
 <body>
+
+<div id="mobile-topbar">
+  <button class="btn-outline" id="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+  <div class="name" id="mobile-topbar-name">Qarz Daftari</div>
+</div>
+<div id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
 <div id="app">
   <div id="sidebar">
@@ -442,6 +489,15 @@ function toFloat(v){
   return isNaN(n) ? null : n;
 }
 
+/* Summa (pul) miqdorini 2 xonagacha yaxlitlaydi — miqdor*narx kabi
+   ko'paytmalardan kelib chiqadigan kompyuter arifmetikasi "shovqini"ni
+   (masalan 1.1 * 3 = 3.3000000000000004) yo'q qilish uchun. Shu orqali
+   qarz qoldig'i hech qachon aslida nolga teng bo'lgan holatda ham
+   "0 emas" bo'lib chiqmaydi. */
+function roundMoney(n){
+  return Math.round(n * 100) / 100;
+}
+
 /* Mahalliy (brauzer/kompyuter) sana — toISOString() o'rniga ishlatiladi,
    chunki toISOString() UTC bo'yicha hisoblaydi va O'zbekiston (UTC+5)
    vaqtida tungi 00:00–04:59 oralig'ida noto'g'ri (bir kun oldingi) sanani
@@ -495,6 +551,10 @@ function updateCustomer(id, name, phone, address){
 }
 
 function deleteCustomerById(id){
+  // Mijozning barcha tranzaksiyalari o'chirilishidan oldin, ular mahsulot
+  // omboriga qilgan ta'sirini bekor qilamiz (aks holda o'sha mahsulotlar
+  // qoldig'i noto'g'ri kamaytirilgan holatda qolib ketardi).
+  DATA.transactions.filter(t=>t.customerId===id).forEach(revertProductStockForTxn);
   DATA.customers = DATA.customers.filter(c=>c.id!==id);
   DATA.transactions = DATA.transactions.filter(t=>t.customerId!==id);
   saveData();
@@ -514,6 +574,20 @@ function getCustomer(id){
   return {...c, transactions:withBalance, balance:running};
 }
 
+/* Ma'lum tranzaksiya (agar u qarz turida va mahsulotga bog'langan bo'lsa)
+   mahsulot omboriga qo'shgan ta'sirini (qoldiqdan ayirish, sotilganga
+   qo'shish) bekor qiladi — bu tranzaksiya tahrirlanganda YOKI o'chirilganda
+   ham ishlatiladi, shunda omborda "yopishib qolgan" noto'g'ri raqamlar
+   qolmaydi. */
+function revertProductStockForTxn(txn){
+  if(!txn || txn.type !== 'debt' || !txn.productId) return;
+  const product = DATA.products.find(p=>p.id===txn.productId);
+  if(!product) return;
+  const q = txn.qty || 0;
+  if(product.stock != null) product.stock = product.stock + q;
+  product.sold = Math.max(0, (product.sold || 0) - q);
+}
+
 function addTransaction(customerId, {date, description, qty, price, amount, type, productId, dueDate}){
   const customer = DATA.customers.find(c=>c.id===customerId);
   if(!customer) throw new Error("Mijoz topilmadi.");
@@ -526,17 +600,21 @@ function addTransaction(customerId, {date, description, qty, price, amount, type
     finalAmount = q * p;
   }
   if(!finalAmount || finalAmount <= 0) throw new Error("Summani kiriting.");
+  finalAmount = roundMoney(finalAmount);
 
   const txn = {
     id:newId(),
     customerId,
     date: date || todayISO(),
     description:(description||"").trim(),
-    qty: qty ? toFloat(qty) : null,
-    price: price ? toFloat(price) : null,
+    // qty/narx/mahsulot faqat "qarz" turida saqlanadi — "to'lov" turiga
+    // o'tkazilganda modal formadagi (yashiringan) eski qiymatlar
+    // tranzaksiyaga "yopishib qolmasligi" uchun.
+    qty: (type === 'debt' && qty) ? toFloat(qty) : null,
+    price: (type === 'debt' && price) ? toFloat(price) : null,
     amount: finalAmount,
     type,
-    productId: productId || null,
+    productId: (type === 'debt' && productId) ? productId : null,
     dueDate: (type === 'debt' && dueDate) ? dueDate : null,
     createdAt:new Date().toISOString()
   };
@@ -574,24 +652,21 @@ function updateTransaction(id, {date, description, qty, price, amount, type, pro
     finalAmount = q * p;
   }
   if(!finalAmount || finalAmount <= 0) throw new Error("Summani kiriting.");
+  finalAmount = roundMoney(finalAmount);
 
   // Eski mahsulot ombori ta'sirini bekor qilish
-  if(txn.type === 'debt' && txn.productId){
-    const oldProduct = DATA.products.find(p=>p.id===txn.productId);
-    if(oldProduct){
-      const oldQty = txn.qty || 0;
-      if(oldProduct.stock != null) oldProduct.stock = oldProduct.stock + oldQty;
-      oldProduct.sold = Math.max(0, (oldProduct.sold || 0) - oldQty);
-    }
-  }
+  revertProductStockForTxn(txn);
 
   txn.date = date || txn.date;
   txn.description = (description||"").trim();
-  txn.qty = qty ? toFloat(qty) : null;
-  txn.price = price ? toFloat(price) : null;
+  // qty/narx/mahsulot faqat "qarz" turida saqlanadi (addTransaction'dagi
+  // bilan bir xil sabab — turi "to'lov"ga o'zgartirilganda eski qiymatlar
+  // qolib ketmasligi uchun).
+  txn.qty = (type === 'debt' && qty) ? toFloat(qty) : null;
+  txn.price = (type === 'debt' && price) ? toFloat(price) : null;
   txn.amount = finalAmount;
   txn.type = type;
-  txn.productId = productId || null;
+  txn.productId = (type === 'debt' && productId) ? productId : null;
   txn.dueDate = (type === 'debt' && dueDate) ? dueDate : null;
 
   // Yangi mahsulot ombori ta'sirini qo'llash
@@ -609,6 +684,11 @@ function updateTransaction(id, {date, description, qty, price, amount, type, pro
 }
 
 function deleteTransactionById(id){
+  const txn = DATA.transactions.find(t=>t.id===id);
+  // O'chirilayotgan tranzaksiya mahsulot omboriga ta'sir qilgan bo'lsa,
+  // shu ta'sir avval bekor qilinadi — aks holda o'chirilgandan keyin ham
+  // ombor qoldig'i noto'g'ri (kamaytirilgan holatda) qolib ketardi.
+  revertProductStockForTxn(txn);
   DATA.transactions = DATA.transactions.filter(t=>t.id!==id);
   saveData();
 }
@@ -855,6 +935,68 @@ function toast(message, type){
   }, 3800);
 }
 
+/* ============ YANGI: mobil (Android/Capacitor) uchun fayl saqlash/ulashish ============
+   Desktop (Electron/brauzer)'da hech narsa o'zgarmaydi — bu yordamchi funksiyalar
+   faqat window.Capacitor mavjud bo'lganda (ya'ni telefon ilovasida) ishlatiladi.
+   Android WebView'da <a download> va window.print() ishonchli ishlamagani uchun,
+   fayllar vaqtinchalik keshga yozilib, telefonning "Ulashish" (Share) oynasi orqali
+   saqlanadi/yuboriladi — bu mobil qurilmalarda "yuklab olish"ning tabiiy muqobilidir. */
+function isNativeMobile(){
+  try{
+    return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+  }catch(e){
+    return false;
+  }
+}
+/* Matnli (JSON/HTML) yoki ikkilik (base64, masalan xlsx) faylni keshga yozib,
+   so'ng tizimning "Ulashish" oynasini ochadi (u yerda foydalanuvchi faylni
+   saqlashi, boshqa ilovaga yuborishi yoki Chrome'da ochishi mumkin). */
+async function saveAndShareFile(filename, data, opts){
+  opts = opts || {};
+  const Plugins = window.Capacitor && window.Capacitor.Plugins;
+  const Filesystem = Plugins && Plugins.Filesystem;
+  const Share = Plugins && Plugins.Share;
+  if(!Filesystem || !Share){
+    throw new Error("Fayl tizimi mavjud emas.");
+  }
+  const writeOpts = {
+    path: filename,
+    directory: 'CACHE',
+    data: data
+  };
+  if(!opts.binary){
+    writeOpts.encoding = 'utf8';
+  }
+  const res = await Filesystem.writeFile(writeOpts);
+  await Share.share({
+    title: filename,
+    url: res.uri,
+    dialogTitle: filename
+  });
+}
+/* Chop etish uchun tayyorlangan HTML hujjatni (qarz varaqasi, hisobot) mobil
+   qurilmada saqlaydi/ulashadi — desktopda esa eski xatti-harakat (window.print())
+   o'zgarishsiz qoladi. */
+async function shareOrPrintHtml(html, filename){
+  if(isNativeMobile()){
+    try{
+      await saveAndShareFile(filename, html, {binary:false});
+    }catch(err){
+      alert("Faylni ulashishda xato: " + err.message);
+    }
+    return;
+  }
+  const win = window.open('', '_blank');
+  if(!win){
+    alert("Yangi oyna ochilmadi — brauzeringizda popup bloklanmagan bo'lishi mumkin, ruxsat bering va qayta urinib ko'ring.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+  setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 400);
+}
+
 /* ============ KOMPANIYA BRENDI (yangi) ============
    Dastur endi bitta kompaniyaga ("Osiyo Travertin") qattiq bog'lanmagan —
    birinchi ishga tushirishda foydalanuvchi o'z kompaniya nomi va (ixtiyoriy)
@@ -977,6 +1119,22 @@ function customerMatchesFilter(c, filter, today, thisMonth){
   }
 }
 
+/* ============ YANGI: mobil (telefon) uchun yon panelni ochish/yopish ============ */
+function toggleMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if(!sb || !backdrop) return;
+  const isOpen = sb.classList.toggle('open');
+  backdrop.classList.toggle('show', isOpen);
+}
+function closeMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if(!sb || !backdrop) return;
+  sb.classList.remove('open');
+  backdrop.classList.remove('show');
+}
+
 /* ============ RENDER: SIDEBAR ============ */
 function renderSidebar(){
   const list = document.getElementById('customer-list');
@@ -1011,6 +1169,7 @@ function renderSidebar(){
 /* ============ RENDER: DASHBOARD ============ */
 function showDashboard(){
   currentCustomerId = null;
+  closeMobileSidebar();
   renderSidebar();
   const stats = getStats();
   const chart = renderMonthlyChart(getMonthlySeries(6));
@@ -1092,6 +1251,7 @@ function showDashboard(){
 /* ============ RENDER: MIJOZ SAHIFASI ============ */
 function showCustomer(id){
   currentCustomerId = id;
+  closeMobileSidebar();
   renderSidebar();
   const c = getCustomer(id);
   const main = document.getElementById('main');
@@ -1171,6 +1331,7 @@ function showCustomer(id){
 /* ============ RENDER: MAHSULOTLAR ============ */
 function showProducts(){
   currentCustomerId = null;
+  closeMobileSidebar();
   renderSidebar();
   const products = listProducts();
   const main = document.getElementById('main');
@@ -1375,15 +1536,7 @@ function printCustomerStatement(customerId){
   </table>`}
   <div class="footer">Hujjat ${today} sanasida yaratildi — ${esc(companyName())} · Qarz Daftari</div>
 </body></html>`;
-  const win = window.open('', '_blank');
-  if(!win){
-    alert("Yangi oyna ochilmadi — brauzeringizda popup bloklanmagan bo'lishi mumkin, ruxsat bering va qayta urinib ko'ring.");
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  win.onload = () => { win.focus(); win.print(); };
-  setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 400);
+  shareOrPrintHtml(html, `Qarz_varaqasi_${(c.name||'mijoz').replace(/[^\p{L}\p{N}]+/gu,'_')}_${todayISO()}.html`);
 }
 
 /* ============ MODAL: MIJOZ QO'SHISH/TAHRIRLASH ============ */
@@ -1535,7 +1688,7 @@ function recalcAmount(){
   const q = parseFloat(document.getElementById('txn-qty').value);
   const p = parseFloat(document.getElementById('txn-price').value);
   if(!isNaN(q) && !isNaN(p)){
-    document.getElementById('txn-amount').value = (q*p).toString();
+    document.getElementById('txn-amount').value = roundMoney(q*p).toString();
   }
   updateAmountWords();
 }
@@ -1608,7 +1761,7 @@ document.getElementById('debtors-only-check').addEventListener('change', (e)=>{
 })();
 
 /* ============ EXCEL EXPORT (o'zgartirilmagan) ============ */
-function exportExcel(){
+async function exportExcel(){
   if(typeof XLSX === 'undefined'){
     alert("Excel export kutubxonasi yuklanmadi — internet aloqasini tekshiring va sahifani qayta yuklang.");
     return;
@@ -1644,7 +1797,17 @@ function exportExcel(){
   });
 
   const dateStr = todayISO();
-  XLSX.writeFile(wb, `Qarz_Daftari_${dateStr}.xlsx`);
+  const filename = `Qarz_Daftari_${dateStr}.xlsx`;
+  if(isNativeMobile()){
+    try{
+      const base64 = XLSX.write(wb, {type:'base64', bookType:'xlsx'});
+      await saveAndShareFile(filename, base64, {binary:true});
+    }catch(err){
+      alert("Excel faylini saqlashda xato: " + err.message);
+    }
+    return;
+  }
+  XLSX.writeFile(wb, filename);
 }
 
 /* ============ MIJOZLARNI IMPORT QILISH (Excel/CSV) — o'zgartirilmagan ============ */
@@ -1753,6 +1916,7 @@ function computeReport(from, to){
 
 function showReports(){
   currentCustomerId = null;
+  closeMobileSidebar();
   renderSidebar();
   renderReportsPage(reportsRange.preset || 'today');
 }
@@ -1890,19 +2054,11 @@ function printReport(){
     }).join('')}
   </tbody></table>`}
 </body></html>`;
-  const win = window.open('', '_blank');
-  if(!win){
-    alert("Yangi oyna ochilmadi — brauzeringizda popup bloklanmagan bo'lishi mumkin, ruxsat bering va qayta urinib ko'ring.");
-    return;
-  }
-  win.document.write(html);
-  win.document.close();
-  win.onload = () => { win.focus(); win.print(); };
-  setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 400);
+  shareOrPrintHtml(html, `Hisobot_${report.from}_${report.to}.html`);
 }
 
 /* ============ BACKUP / RESTORE (yangi) ============ */
-function exportBackup(){
+async function exportBackup(){
   const backup = {
     app: "osiyo-travertin-qarz-daftari",
     schemaVersion: SCHEMA_VERSION,
@@ -1911,11 +2067,21 @@ function exportBackup(){
     theme: (function(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })()
   };
   const json = JSON.stringify(backup, null, 2);
+  const filename = `qarzdaftar-backup-${todayISO()}.json`;
+  if(isNativeMobile()){
+    try{
+      await saveAndShareFile(filename, json, {binary:false});
+      toast("Backup fayli yaratildi.", 'success');
+    }catch(err){
+      alert("Backup faylini saqlashda xato: " + err.message);
+    }
+    return;
+  }
   const blob = new Blob([json], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `qarzdaftar-backup-${todayISO()}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1961,6 +2127,11 @@ function handleRestoreFile(event){
       showDashboard();
       if(!DATA.settings.companyName){
         showCompanySetupScreen();
+      }else{
+        // Agar tiklangan backup'da PIN o'rnatilgan bo'lsa, dastur darhol
+        // qulflansin — aks holda restore qilingandan keyin PIN himoyasi
+        // faqat dastur qayta ishga tushirilgandagina ishga tushardi.
+        initPinLock();
       }
     }catch(err){
       alert("Backupni tiklashda xato: " + err.message);
@@ -2223,6 +2394,7 @@ async function submitPinUnlock(){
 /* ============ SOZLAMALAR SAHIFASI (yangi) ============ */
 function showSettings(){
   currentCustomerId = null;
+  closeMobileSidebar();
   renderSidebar();
   const main = document.getElementById('main');
   const pinOn = !!(DATA.settings && DATA.settings.pinHash);
