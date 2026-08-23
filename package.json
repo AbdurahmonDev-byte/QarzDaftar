@@ -1,9 +1,9 @@
 {
-  "name": "osiyotravertin-qarzdaftari",
+  "name": "qarz-daftari",
   "version": "1.0.0",
-  "description": "Osiyo Travertin — Qarz Daftari (mijozlar qarz/to'lov hisobi)",
+  "description": "Qarz Daftari — mijozlar qarz/to'lov hisobi (har qanday biznes uchun; kompaniya nomi va logotipi ilova ichida sozlanadi)",
   "main": "main.js",
-  "author": "Osiyo Travertin",
+  "author": "Qarz Daftari",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.osiyotravertin.qarzdaftari",
-    "productName": "Osiyo Travertin - Qarz Daftari",
+    "appId": "com.qarzdaftari.app",
+    "productName": "Qarz Daftari",
     "files": [
       "main.js",
       "index.html",
@@ -38,7 +38,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Osiyo Travertin - Qarz Daftari"
+      "shortcutName": "Qarz Daftari"
     }
   }
 }
