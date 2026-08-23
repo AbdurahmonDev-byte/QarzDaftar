@@ -13,7 +13,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     icon: path.join(__dirname, 'build', 'icon.ico'),
-    title: "Osiyo Travertin — Qarz Daftari",
+    title: "Qarz Daftari", // haqiqiy sarlavha (kompaniya nomi bilan) ilova ichida dinamik o'rnatiladi
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
