@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Osiyo Travertin — Qarz Daftari</title>
+<title>Qarz Daftari</title>
 <script>
 /* SheetJS (xlsx) kutubxonasi — Excel export/import uchun, to'liq oflayn ishlashi uchun ichiga joylashtirilgan */
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -285,6 +285,68 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   ::-webkit-scrollbar{width:9px;}
   ::-webkit-scrollbar-thumb{background:var(--scrollbar); border-radius:6px;}
+
+  /* ============ YANGI: PIN qulf ekrani ============ */
+  #pin-lock-overlay{
+    position:fixed; inset:0;
+    background:var(--modal-bg);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:90;
+  }
+  #pin-lock-overlay.show{display:flex;}
+
+  /* ============ YANGI: kompaniya sozlash (birinchi ishga tushirish) ekrani ============ */
+  #company-setup-overlay{
+    position:fixed; inset:0;
+    background:var(--modal-bg);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:95;
+  }
+  #company-setup-overlay.show{display:flex;}
+  .logo-preview-row{display:flex; align-items:center; gap:14px; margin-bottom:14px;}
+  .logo-preview-box{
+    width:64px; height:64px; border-radius:12px;
+    border:1px dashed var(--border);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; background:var(--cream); flex-shrink:0;
+  }
+  .logo-preview-box img{width:100%; height:100%; object-fit:cover;}
+
+  /* ============ YANGI: Toast bildirishnomalar ============ */
+  #toast-container{
+    position:fixed; bottom:20px; right:20px; z-index:80;
+    display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+    pointer-events:none;
+  }
+  .toast{
+    background:#2B3A4A; color:#fff;
+    padding:11px 16px; border-radius:8px; font-size:13px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.3);
+    opacity:0; transform:translateY(8px);
+    transition:opacity .25s, transform .25s;
+    max-width:320px;
+  }
+  .toast.show{opacity:1; transform:translateY(0);}
+  .toast-success{background:#3F7D51;}
+  .toast-warn{background:#8C6528;}
+  .toast-error{background:#B0453A;}
+
+  /* ============ YANGI: mijozlar filtri ============ */
+  #customer-filter-select{
+    width:100%;
+    margin-top:8px;
+    padding:7px 8px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:12px;
+    background:var(--cream);
+    color:var(--navy);
+    font-family:inherit;
+  }
 </style>
 </head>
 <body>
@@ -293,9 +355,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <div id="sidebar">
     <div id="sidebar-header">
       <button class="btn-outline" id="theme-toggle-btn" onclick="toggleTheme()">Tungi rejim</button>
-      <h1><a href="#" onclick="showDashboard(); return false;">Osiyo Travertin</a></h1>
+      <h1><a href="#" onclick="showDashboard(); return false;" style="display:flex; align-items:center; gap:8px;"><img id="sidebar-logo-img" alt="" style="width:28px; height:28px; border-radius:7px; object-fit:cover; display:none;"><span id="sidebar-company-name">Qarz Daftari</span></a></h1>
       <div class="sub">Qarz Daftari</div>
-      <input id="search-box" type="text" placeholder="Mijoz qidirish...">
+      <input id="search-box" type="text" placeholder="Mijoz qidirish (ism, telefon)...">
+      <select id="customer-filter-select">
+        <option value="all">Barcha mijozlar</option>
+        <option value="debtors">Qarzdorlar</option>
+        <option value="paid">Qarzini to'laganlar</option>
+        <option value="overdue">Muddati o'tgan qarzlar</option>
+        <option value="soon">Muddati yaqin qarzlar</option>
+        <option value="today-sales">Bugungi savdolar</option>
+        <option value="month-sales">Shu oydagi savdolar</option>
+      </select>
       <label style="display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px; color:var(--muted3); cursor:pointer;">
         <input type="checkbox" id="debtors-only-check" style="cursor:pointer;">
         Faqat qarzdorlarni ko'rsatish
@@ -304,6 +375,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     <div style="padding:0 16px; display:flex; gap:8px;">
       <button class="btn-gold" id="add-customer-btn" style="flex:2;" onclick="openCustomerModal()">+ Yangi mijoz</button>
       <button class="btn-outline" id="products-nav-btn" style="flex:1;" onclick="showProducts()">Mahsulotlar</button>
+    </div>
+    <div style="padding:8px 16px 0 16px; display:flex; gap:8px;">
+      <button class="btn-outline btn-small" style="flex:1;" onclick="showReports()">Hisobotlar</button>
+      <button class="btn-outline btn-small" style="flex:1;" onclick="showSettings()">Sozlamalar</button>
     </div>
     <div id="customer-list"></div>
   </div>
@@ -314,12 +389,31 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <div class="modal-box" id="modal-box"></div>
 </div>
 
+<div id="toast-container"></div>
+<div id="pin-lock-overlay"></div>
+<div id="company-setup-overlay"></div>
+
 <script>
 /* ============ MA'LUMOTLAR OMBORI (localStorage asosida) ============ */
-const STORAGE_KEY = "qarz_daftari_data_v1";
+const STORAGE_KEY = "qarz_daftari_data_v1"; // ESKI KALIT — o'zgartirilmaydi (eski ma'lumotlar bilan moslik uchun)
+const THEME_KEY = "qarz_daftari_theme";
+const SCHEMA_VERSION = 2;
 
 function newId(){
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+/* Eski (v1) ma'lumotlarga yangi maydonlar uchun standart qiymat beradi.
+   Hech qanday mavjud maydon o'chirilmaydi yoki qayta yozilmaydi — faqat
+   yo'q bo'lgan joylarga standart qiymat qo'shiladi. */
+function migrateData(data){
+  data = data || {};
+  data.customers = (data.customers || []).map(c => Object.assign({address:""}, c));
+  data.products = (data.products || []).map(p => Object.assign({stock:null, sold:0}, p));
+  data.transactions = (data.transactions || []).map(t => Object.assign({dueDate:null}, t));
+  data.settings = Object.assign({pinHash:null, lowStockThreshold:5, companyName:"", companyLogo:null}, data.settings || {});
+  data.schemaVersion = SCHEMA_VERSION;
+  return data;
 }
 
 function loadData(){
@@ -330,10 +424,10 @@ function loadData(){
       parsed.customers = parsed.customers || [];
       parsed.transactions = parsed.transactions || [];
       parsed.products = parsed.products || [];
-      return parsed;
+      return migrateData(parsed);
     }
   }catch(e){ console.warn("Ma'lumot o'qishda xato:", e); }
-  return {customers:[], transactions:[], products:[]};
+  return migrateData({customers:[], transactions:[], products:[]});
 }
 
 let DATA = loadData();
@@ -347,6 +441,16 @@ function toFloat(v){
   const n = parseFloat(v);
   return isNaN(n) ? null : n;
 }
+
+/* Mahalliy (brauzer/kompyuter) sana — toISOString() o'rniga ishlatiladi,
+   chunki toISOString() UTC bo'yicha hisoblaydi va O'zbekiston (UTC+5)
+   vaqtida tungi 00:00–04:59 oralig'ida noto'g'ri (bir kun oldingi) sanani
+   qaytarib, "bugungi savdo/tushum"ni noto'g'ri hisoblashiga sabab bo'lardi. */
+function dateToISO(d){
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return dateToISO(new Date()); }
+function monthKey(dateStr){ return (dateStr||"").slice(0,7); }
 
 function balanceFor(customerId){
   let bal = 0;
@@ -363,7 +467,7 @@ function listCustomersWithBalance(searchTerm){
   if(searchTerm && searchTerm.trim()){
     const t = searchTerm.trim().toLowerCase();
     customers = customers.filter(c =>
-      c.name.toLowerCase().includes(t) || (c.phone||"").toLowerCase().includes(t)
+      c.name.toLowerCase().includes(t) || (c.phone||"").toLowerCase().includes(t) || (c.id||"").toLowerCase().includes(t)
     );
   }
   const result = customers.map(c => ({...c, balance: balanceFor(c.id)}));
@@ -371,20 +475,21 @@ function listCustomersWithBalance(searchTerm){
   return result;
 }
 
-function addCustomer(name, phone){
+function addCustomer(name, phone, address){
   name = (name||"").trim();
   if(!name) throw new Error("Ism kiritilishi shart.");
-  const customer = {id:newId(), name, phone:(phone||"").trim(), createdAt:new Date().toISOString()};
+  const customer = {id:newId(), name, phone:(phone||"").trim(), address:(address||"").trim(), createdAt:new Date().toISOString()};
   DATA.customers.push(customer);
   saveData();
   return customer;
 }
 
-function updateCustomer(id, name, phone){
+function updateCustomer(id, name, phone, address){
   const c = DATA.customers.find(c=>c.id===id);
   if(!c) throw new Error("Mijoz topilmadi.");
   if(name && name.trim()) c.name = name.trim();
   c.phone = (phone||"").trim();
+  if(address !== undefined) c.address = (address||"").trim();
   saveData();
   return c;
 }
@@ -409,7 +514,7 @@ function getCustomer(id){
   return {...c, transactions:withBalance, balance:running};
 }
 
-function addTransaction(customerId, {date, description, qty, price, amount, type, productId}){
+function addTransaction(customerId, {date, description, qty, price, amount, type, productId, dueDate}){
   const customer = DATA.customers.find(c=>c.id===customerId);
   if(!customer) throw new Error("Mijoz topilmadi.");
   if(type !== "debt" && type !== "payment") throw new Error("Noto'g'ri turi.");
@@ -425,16 +530,80 @@ function addTransaction(customerId, {date, description, qty, price, amount, type
   const txn = {
     id:newId(),
     customerId,
-    date: date || new Date().toISOString().slice(0,10),
+    date: date || todayISO(),
     description:(description||"").trim(),
     qty: qty ? toFloat(qty) : null,
     price: price ? toFloat(price) : null,
     amount: finalAmount,
     type,
     productId: productId || null,
+    dueDate: (type === 'debt' && dueDate) ? dueDate : null,
     createdAt:new Date().toISOString()
   };
   DATA.transactions.push(txn);
+
+  // Mahsulot omborini yangilash (faqat qarz/savdo turida, mahsulot tanlangan bo'lsa)
+  if(type === 'debt' && productId){
+    const product = DATA.products.find(p=>p.id===productId);
+    if(product){
+      const q = txn.qty || 0;
+      if(product.stock != null){
+        product.stock = Math.max(0, product.stock - q);
+      }
+      product.sold = (product.sold || 0) + q;
+    }
+  }
+
+  saveData();
+  return txn;
+}
+
+/* Mavjud tranzaksiyani tahrirlash (masalan, adashib "300" o'rniga "3000"
+   kiritilgan bo'lsa, tuzatish uchun). Mahsulot omborига avval qo'shilgan
+   ta'sir (qoldiq/sotilgan) avval bekor qilinadi, so'ng yangi qiymatlar
+   bilan qayta qo'llaniladi — shu tarzda qoldiq hamisha to'g'ri qoladi. */
+function updateTransaction(id, {date, description, qty, price, amount, type, productId, dueDate}){
+  const txn = DATA.transactions.find(t=>t.id===id);
+  if(!txn) throw new Error("Tranzaksiya topilmadi.");
+  if(type !== "debt" && type !== "payment") throw new Error("Noto'g'ri turi.");
+
+  let finalAmount = toFloat(amount);
+  if(!finalAmount || finalAmount <= 0){
+    const q = toFloat(qty) || 0;
+    const p = toFloat(price) || 0;
+    finalAmount = q * p;
+  }
+  if(!finalAmount || finalAmount <= 0) throw new Error("Summani kiriting.");
+
+  // Eski mahsulot ombori ta'sirini bekor qilish
+  if(txn.type === 'debt' && txn.productId){
+    const oldProduct = DATA.products.find(p=>p.id===txn.productId);
+    if(oldProduct){
+      const oldQty = txn.qty || 0;
+      if(oldProduct.stock != null) oldProduct.stock = oldProduct.stock + oldQty;
+      oldProduct.sold = Math.max(0, (oldProduct.sold || 0) - oldQty);
+    }
+  }
+
+  txn.date = date || txn.date;
+  txn.description = (description||"").trim();
+  txn.qty = qty ? toFloat(qty) : null;
+  txn.price = price ? toFloat(price) : null;
+  txn.amount = finalAmount;
+  txn.type = type;
+  txn.productId = productId || null;
+  txn.dueDate = (type === 'debt' && dueDate) ? dueDate : null;
+
+  // Yangi mahsulot ombori ta'sirini qo'llash
+  if(type === 'debt' && txn.productId){
+    const product = DATA.products.find(p=>p.id===txn.productId);
+    if(product){
+      const q = txn.qty || 0;
+      if(product.stock != null) product.stock = Math.max(0, product.stock - q);
+      product.sold = (product.sold || 0) + q;
+    }
+  }
+
   saveData();
   return txn;
 }
@@ -448,23 +617,27 @@ function deleteTransactionById(id){
 function listProducts(){
   return [...DATA.products].sort((a,b)=>a.name.localeCompare(b.name,'uz'));
 }
-function addProduct(name, unit, price){
+function addProduct(name, unit, price, stock){
   name = (name||"").trim();
   if(!name) throw new Error("Mahsulot nomi kiritilishi shart.");
   const p = parseFloat(price);
   if(isNaN(p) || p <= 0) throw new Error("Narxni to'g'ri kiriting.");
-  const product = {id:newId(), name, unit:(unit||"").trim(), price:p, createdAt:new Date().toISOString()};
+  const stockVal = (stock === undefined || stock === null || stock === "") ? null : Math.max(0, parseFloat(stock) || 0);
+  const product = {id:newId(), name, unit:(unit||"").trim(), price:p, stock:stockVal, sold:0, createdAt:new Date().toISOString()};
   DATA.products.push(product);
   saveData();
   return product;
 }
-function updateProduct(id, name, unit, price){
+function updateProduct(id, name, unit, price, stock){
   const p = DATA.products.find(p=>p.id===id);
   if(!p) throw new Error("Mahsulot topilmadi.");
   const priceNum = parseFloat(price);
   if(name && name.trim()) p.name = name.trim();
   p.unit = (unit||"").trim();
   if(!isNaN(priceNum) && priceNum > 0) p.price = priceNum;
+  if(stock !== undefined){
+    p.stock = (stock === null || stock === "") ? null : Math.max(0, parseFloat(stock) || 0);
+  }
   saveData();
   return p;
 }
@@ -472,13 +645,146 @@ function deleteProductById(id){
   DATA.products = DATA.products.filter(p=>p.id!==id);
   saveData();
 }
+function isLowStock(p){
+  return p.stock != null && p.stock <= (DATA.settings.lowStockThreshold ?? 5);
+}
 
+/* ---------- QARZ MUDDATI VA STATUSLARI ----------
+   Har bir mijozning to'lovlari, qarzlariga FIFO (eng oldingi qarz birinchi
+   yopiladi) tartibida taqsimlanadi — shu orqali har bir alohida qarz
+   yozuvi uchun "to'langan" va "qolgan" summa hisoblanadi. Bu faqat
+   hisoblash uchun, DATA'ni o'zgartirmaydi. */
+function computeDebtAllocations(customerId){
+  const txns = DATA.transactions
+    .filter(t => t.customerId === customerId)
+    .slice()
+    .sort((a,b) => (a.date+a.createdAt).localeCompare(b.date+b.createdAt));
+
+  const debts = txns.filter(t=>t.type==='debt').map(t => ({txn:t, remaining:t.amount, paid:0}));
+  let paymentPool = txns.filter(t=>t.type==='payment').reduce((s,t)=>s+t.amount,0);
+
+  for(const d of debts){
+    if(paymentPool <= 0) break;
+    const use = Math.min(paymentPool, d.remaining);
+    d.paid += use;
+    d.remaining -= use;
+    paymentPool -= use;
+  }
+  return debts;
+}
+
+function debtStatus(alloc, todayStr){
+  if(alloc.remaining <= 0.01) return {code:'paid', label:"To'langan", emoji:'🟢'};
+  const dueDate = alloc.txn.dueDate;
+  if(dueDate){
+    if(dueDate < todayStr) return {code:'overdue', label:"Muddati o'tgan", emoji:'🔴'};
+    const due = new Date(dueDate+'T00:00:00');
+    const today = new Date(todayStr+'T00:00:00');
+    const diffDays = Math.round((due-today)/86400000);
+    if(diffDays <= 3) return {code:'soon', label:"Muddati yaqin", emoji:'🟡'};
+  }
+  return {code:'active', label:"Faol qarz", emoji:'🔵'};
+}
+
+function getDueStats(){
+  const today = todayISO();
+  let overdue = 0, soon = 0;
+  for(const c of DATA.customers){
+    const allocs = computeDebtAllocations(c.id);
+    for(const d of allocs){
+      const st = debtStatus(d, today);
+      if(st.code==='overdue') overdue++;
+      else if(st.code==='soon') soon++;
+    }
+  }
+  return {overdue, soon};
+}
+
+/* ---------- STATISTIKA / DASHBOARD ---------- */
 function getStats(){
   const customers = listCustomersWithBalance();
   const totalDebt = customers.reduce((s,c)=>s+Math.max(c.balance,0),0);
   const debtorCount = customers.filter(c=>c.balance>0).length;
   const topDebtors = customers.filter(c=>c.balance>0).sort((a,b)=>b.balance-a.balance).slice(0,5);
-  return {totalDebt, debtorCount, customerCount:customers.length, topDebtors};
+
+  const today = todayISO();
+  const thisMonth = monthKey(today);
+  let totalPaid = 0, totalSales = 0, todayRevenue = 0, monthRevenue = 0;
+  for(const t of DATA.transactions){
+    if(t.type === 'payment'){
+      totalPaid += t.amount;
+      if(t.date === today) todayRevenue += t.amount;
+      if(monthKey(t.date) === thisMonth) monthRevenue += t.amount;
+    }else{
+      totalSales += t.amount;
+    }
+  }
+  const due = getDueStats();
+
+  const custName = id => (DATA.customers.find(c=>c.id===id)||{}).name || "—";
+  const lastPayments = DATA.transactions.filter(t=>t.type==='payment')
+    .slice().sort((a,b)=>(b.date+b.createdAt).localeCompare(a.date+a.createdAt)).slice(0,5)
+    .map(t => ({...t, customerName: custName(t.customerId)}));
+  const lastSales = DATA.transactions.filter(t=>t.type==='debt')
+    .slice().sort((a,b)=>(b.date+b.createdAt).localeCompare(a.date+a.createdAt)).slice(0,5)
+    .map(t => ({...t, customerName: custName(t.customerId)}));
+
+  return {
+    totalDebt, debtorCount, customerCount:customers.length, topDebtors,
+    totalPaid, totalSales, todayRevenue, monthRevenue,
+    overdueCount:due.overdue, soonCount:due.soon,
+    lastPayments, lastSales
+  };
+}
+
+function monthLabel(key){
+  const names = ["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+  const parts = key.split('-');
+  return names[parseInt(parts[1],10)-1] + " " + parts[0].slice(2);
+}
+function getMonthlySeries(months){
+  months = months || 6;
+  const now = new Date();
+  const keys = [];
+  for(let i = months-1; i>=0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    keys.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0'));
+  }
+  const map = {};
+  keys.forEach(k=>map[k]={sales:0, revenue:0});
+  for(const t of DATA.transactions){
+    const k = monthKey(t.date);
+    if(map[k]){
+      if(t.type==='debt') map[k].sales += t.amount;
+      else map[k].revenue += t.amount;
+    }
+  }
+  return keys.map(k=>({key:k, label:monthLabel(k), sales:map[k].sales, revenue:map[k].revenue}));
+}
+function renderMonthlyChart(series){
+  const max = Math.max(1, ...series.map(s=>Math.max(s.sales,s.revenue)));
+  const W = 700, H = 220, padB = 26, padT = 10, gap = 10;
+  const groupW = (W - 20) / series.length;
+  const barW = (groupW - gap) / 2;
+  let bars = '';
+  series.forEach((s, i) => {
+    const x0 = 10 + i*groupW;
+    const hSales = Math.round((s.sales/max) * (H-padB-padT));
+    const hRev = Math.round((s.revenue/max) * (H-padB-padT));
+    const ySales = H - padB - hSales;
+    const yRev = H - padB - hRev;
+    bars += `<rect x="${x0}" y="${ySales}" width="${barW}" height="${hSales}" fill="#B08438" rx="2"><title>${esc(s.label)} — Savdo: ${fmtMoney(s.sales)}</title></rect>`;
+    bars += `<rect x="${x0+barW+2}" y="${yRev}" width="${barW}" height="${hRev}" fill="#3F7D51" rx="2"><title>${esc(s.label)} — Tushum: ${fmtMoney(s.revenue)}</title></rect>`;
+    bars += `<text x="${x0+groupW/2 - gap/2}" y="${H-8}" font-size="10" fill="var(--muted)" text-anchor="middle">${esc(s.label)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:210px; display:block;">
+    <line x1="10" y1="${H-padB}" x2="${W-10}" y2="${H-padB}" stroke="var(--border)" />
+    ${bars}
+  </svg>
+  <div style="display:flex; gap:16px; margin-top:8px; font-size:12px; color:var(--muted3);">
+    <span><span style="display:inline-block;width:10px;height:10px;background:#B08438;border-radius:2px;margin-right:5px;"></span>Savdo</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:#3F7D51;border-radius:2px;margin-right:5px;"></span>Tushum (to'lov)</span>
+  </div>`;
 }
 
 /* ============ YORDAMCHI FUNKSIYALAR ============ */
@@ -486,16 +792,190 @@ function fmtMoney(n){
   n = Math.round(n || 0);
   return n.toLocaleString('en-US').replace(/,/g,' ') + " so'm";
 }
+/* Summani o'zbek tilida so'z bilan yozib beradi (xatoni ko'zdan kechirish
+   uchun) — masalan 300 -> "uch yuz", 3000 -> "uch ming". Shu orqali
+   "300" o'rniga adashib "3000" kiritilgan holatlar darrov ko'zga tashlanadi. */
+function numberToUzbekWords(num){
+  num = Math.round(Math.abs(num || 0));
+  if(num === 0) return "nol";
+  const ones = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
+  const tens = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
+  const scales = ["", "ming", "million", "milliard", "trillion"];
+
+  function threeDigitsToWords(n){
+    const words = [];
+    const h = Math.floor(n/100);
+    const rest = n % 100;
+    const t = Math.floor(rest/10);
+    const o = rest % 10;
+    if(h > 0) words.push(h === 1 ? "yuz" : ones[h] + " yuz");
+    if(t > 0) words.push(tens[t]);
+    if(o > 0) words.push(ones[o]);
+    return words.join(" ");
+  }
+
+  const groups = [];
+  let n = num;
+  while(n > 0){
+    groups.push(n % 1000);
+    n = Math.floor(n/1000);
+  }
+  const parts = [];
+  for(let i = groups.length-1; i>=0; i--){
+    const g = groups[i];
+    if(g === 0) continue;
+    if(i > 0){
+      parts.push(g === 1 ? scales[i] : (threeDigitsToWords(g) + " " + scales[i]));
+    }else{
+      parts.push(threeDigitsToWords(g));
+    }
+  }
+  return parts.join(" ");
+}
+function fmtMoneyWords(n){
+  const words = numberToUzbekWords(n);
+  return words.charAt(0).toUpperCase() + words.slice(1) + " so'm";
+}
 function esc(s){
   const d = document.createElement('div');
   d.textContent = s == null ? "" : String(s);
   return d.innerHTML;
+}
+function toast(message, type){
+  const container = document.getElementById('toast-container');
+  if(!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + (type || 'info');
+  el.textContent = message;
+  container.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{
+    el.classList.remove('show');
+    setTimeout(()=>el.remove(), 300);
+  }, 3800);
+}
+
+/* ============ KOMPANIYA BRENDI (yangi) ============
+   Dastur endi bitta kompaniyaga ("Osiyo Travertin") qattiq bog'lanmagan —
+   birinchi ishga tushirishda foydalanuvchi o'z kompaniya nomi va (ixtiyoriy)
+   logotipini kiritadi, shundan keyin dastur ichidagi barcha joylarda
+   (sarlavha, chek, hisobot, qarz varaqasi, eslatma matni) o'sha nom/logotip
+   ishlatiladi. Bu localStorage'da (DATA.settings ichida) saqlanadi — har bir
+   kompyuterda mustaqil, tashqi serverga bog'liq emas. */
+function companyName(){
+  return (DATA.settings && DATA.settings.companyName) ? DATA.settings.companyName : "Qarz Daftari";
+}
+function companyLogo(){
+  return (DATA.settings && DATA.settings.companyLogo) ? DATA.settings.companyLogo : null;
+}
+/* Logotip yuklanmagan bo'lsa, kompaniya nomining bosh harf(lar)i asosida
+   avtomatik "monogram" logotip (rangli kvadrat + harflar) chizib beradi —
+   hech qanday tashqi xizmat yoki internet ulanish shart emas. */
+function generateMonogramLogo(name){
+  name = (name || "?").trim();
+  const initials = name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase() || "?";
+  let hash = 0;
+  for(let i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
+  const hue = Math.abs(hash) % 360;
+  const canvas = document.createElement('canvas');
+  canvas.width = 160; canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,160,160);
+  grad.addColorStop(0, `hsl(${hue}, 55%, 45%)`);
+  grad.addColorStop(1, `hsl(${(hue+40)%360}, 55%, 30%)`);
+  ctx.fillStyle = grad;
+  const r = 32, w = 160, h = 160;
+  ctx.beginPath();
+  ctx.moveTo(r,0); ctx.arcTo(w,0,w,h,r); ctx.arcTo(w,h,0,h,r); ctx.arcTo(0,h,0,0,r); ctx.arcTo(0,0,w,0,r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 62px 'Segoe UI', Tahoma, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(initials, 80, 88);
+  return canvas.toDataURL('image/png');
+}
+/* Foydalanuvchi yuklagan logotip rasmini localStorage'ga qulay sig'ishi
+   uchun kichraytiradi (eng katta tomoni maxSize'dan oshmaydi). */
+function resizeImageDataUrl(dataUrl, maxSize){
+  return new Promise((resolve)=>{
+    try{
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > maxSize || h > maxSize){
+          const scale = maxSize / Math.max(w,h);
+          w = Math.round(w*scale); h = Math.round(h*scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    }catch(e){ resolve(dataUrl); }
+  });
+}
+/* Chop etish (statement/chek/hisobot) hujjatlari uchun sarlavha HTML'i —
+   logotip bo'lsa uni ham, bo'lmasa faqat nomni ko'rsatadi. */
+function printHeaderHtml(centered, suffix){
+  const logo = companyLogo();
+  const name = esc(companyName()) + (suffix || '');
+  const justify = centered ? 'center' : 'flex-start';
+  if(logo){
+    return `<div style="display:flex; align-items:center; justify-content:${justify}; gap:10px; margin-bottom:2px;"><img src="${logo}" style="width:36px; height:36px; border-radius:8px; object-fit:cover;"><h1 style="margin:0;">${name}</h1></div>`;
+  }
+  return `<h1>${name}</h1>`;
+}
+/* Sarlavha (oyna nomi) va yon panel logotipi/nomini joriy sozlamalar
+   bilan yangilaydi — kompaniya nomi/logotipi o'zgargan har safar chaqiriladi. */
+function applyCompanyBranding(){
+  const name = companyName();
+  document.title = name + " — Qarz Daftari";
+  const nameEl = document.getElementById('sidebar-company-name');
+  if(nameEl) nameEl.textContent = name;
+  const logo = companyLogo();
+  const logoEl = document.getElementById('sidebar-logo-img');
+  if(logoEl){
+    if(logo){
+      logoEl.src = logo;
+      logoEl.style.display = '';
+    }else{
+      logoEl.removeAttribute('src');
+      logoEl.style.display = 'none';
+    }
+  }
 }
 
 /* ============ HOLAT ============ */
 let currentCustomerId = null; // null = dashboard
 let searchTerm = "";
 let debtorsOnly = false;
+let sidebarFilter = "all";
+
+/* ============ QIDIRUV / FILTER MANTIG'I ============ */
+function customerMatchesFilter(c, filter, today, thisMonth){
+  switch(filter){
+    case 'debtors': return c.balance > 0;
+    case 'paid': return c.balance <= 0 && DATA.transactions.some(t=>t.customerId===c.id);
+    case 'overdue': {
+      const allocs = computeDebtAllocations(c.id);
+      return allocs.some(d => debtStatus(d, today).code === 'overdue');
+    }
+    case 'soon': {
+      const allocs = computeDebtAllocations(c.id);
+      return allocs.some(d => debtStatus(d, today).code === 'soon');
+    }
+    case 'today-sales':
+      return DATA.transactions.some(t=>t.customerId===c.id && t.type==='debt' && t.date===today);
+    case 'month-sales':
+      return DATA.transactions.some(t=>t.customerId===c.id && t.type==='debt' && monthKey(t.date)===thisMonth);
+    default: return true;
+  }
+}
 
 /* ============ RENDER: SIDEBAR ============ */
 function renderSidebar(){
@@ -504,8 +984,13 @@ function renderSidebar(){
   if(debtorsOnly){
     customers = customers.filter(c => c.balance > 0);
   }
+  if(sidebarFilter && sidebarFilter !== 'all'){
+    const today = todayISO();
+    const thisMonth = monthKey(today);
+    customers = customers.filter(c => customerMatchesFilter(c, sidebarFilter, today, thisMonth));
+  }
   if(customers.length === 0){
-    const msg = searchTerm ? "Hech kim topilmadi" : (debtorsOnly ? "Hozircha qarzdor mijoz yo'q." : "Hali mijoz yo'q.<br>Yuqoridagi tugma orqali qo'shing.");
+    const msg = (searchTerm || (sidebarFilter && sidebarFilter !== 'all')) ? "Hech kim topilmadi" : (debtorsOnly ? "Hozircha qarzdor mijoz yo'q." : "Hali mijoz yo'q.<br>Yuqoridagi tugma orqali qo'shing.");
     list.innerHTML = `<div class="empty-msg">${msg}</div>`;
     return;
   }
@@ -528,25 +1013,36 @@ function showDashboard(){
   currentCustomerId = null;
   renderSidebar();
   const stats = getStats();
+  const chart = renderMonthlyChart(getMonthlySeries(6));
   const main = document.getElementById('main');
   main.innerHTML = `
     <h2 class="page-title">Umumiy ko'rinish</h2>
+
+    ${(stats.overdueCount > 0 || stats.soonCount > 0) ? `
+    <div class="panel" style="border-color:${stats.overdueCount>0?'var(--red)':'var(--gold)'};">
+      <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13.5px;">
+        ${stats.overdueCount > 0 ? `<div>🔴 <b>${stats.overdueCount}</b> ta qarzning to'lash muddati o'tgan.</div>` : ''}
+        ${stats.soonCount > 0 ? `<div>🟡 <b>${stats.soonCount}</b> ta qarzning to'lash muddati yaqin.</div>` : ''}
+      </div>
+    </div>` : ''}
+
     <div class="stat-grid">
-      <div class="stat-card debt">
-        <div class="label">Jami qarzdorlik</div>
-        <div class="value">${fmtMoney(stats.totalDebt)}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Qarzdorlar soni</div>
-        <div class="value">${stats.debtorCount}</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Jami mijozlar</div>
-        <div class="value">${stats.customerCount}</div>
-      </div>
+      <div class="stat-card"><div class="label">Jami mijozlar</div><div class="value">${stats.customerCount}</div></div>
+      <div class="stat-card debt"><div class="label">Jami qarzdorlar</div><div class="value">${stats.debtorCount}</div></div>
+      <div class="stat-card debt"><div class="label">Jami qarz summasi</div><div class="value">${fmtMoney(stats.totalDebt)}</div></div>
+      <div class="stat-card"><div class="label">Jami to'langan summa</div><div class="value">${fmtMoney(stats.totalPaid)}</div></div>
+      <div class="stat-card"><div class="label">Bugungi tushum</div><div class="value">${fmtMoney(stats.todayRevenue)}</div></div>
+      <div class="stat-card"><div class="label">Shu oydagi tushum</div><div class="value">${fmtMoney(stats.monthRevenue)}</div></div>
+      <div class="stat-card"><div class="label">Jami savdo summasi</div><div class="value">${fmtMoney(stats.totalSales)}</div></div>
     </div>
+
     <div class="panel">
-      <h3>Eng ko'p qarzdorlar</h3>
+      <h3>Oylik tushum / savdo</h3>
+      ${chart}
+    </div>
+
+    <div class="panel">
+      <h3>Eng ko'p qarzdorlar (TOP 5)</h3>
       ${stats.topDebtors.length === 0
         ? `<div class="empty-msg">Hozircha qarzdor yo'q.</div>`
         : `<table><thead><tr><th>Mijoz</th><th>Telefon</th><th style="text-align:right;">Qarz</th></tr></thead><tbody>
@@ -558,6 +1054,33 @@ function showDashboard(){
            </tbody></table>`
       }
     </div>
+
+    <div class="panel">
+      <h3>Oxirgi to'lovlar</h3>
+      ${stats.lastPayments.length === 0
+        ? `<div class="empty-msg">Hali to'lov yo'q.</div>`
+        : `<table><thead><tr><th>Sana</th><th>Mijoz</th><th style="text-align:right;">Summa</th></tr></thead><tbody>
+            ${stats.lastPayments.map(t=>`<tr class="clickable-row" onclick="showCustomer('${t.customerId}')">
+              <td>${esc(t.date)}</td><td>${esc(t.customerName)}</td>
+              <td style="text-align:right;" class="amount-payment">${fmtMoney(t.amount)}</td>
+            </tr>`).join('')}
+           </tbody></table>`
+      }
+    </div>
+
+    <div class="panel">
+      <h3>Oxirgi savdolar</h3>
+      ${stats.lastSales.length === 0
+        ? `<div class="empty-msg">Hali savdo yo'q.</div>`
+        : `<table><thead><tr><th>Sana</th><th>Mijoz</th><th style="text-align:right;">Summa</th></tr></thead><tbody>
+            ${stats.lastSales.map(t=>`<tr class="clickable-row" onclick="showCustomer('${t.customerId}')">
+              <td>${esc(t.date)}</td><td>${esc(t.customerName)}</td>
+              <td style="text-align:right;" class="amount-debt">${fmtMoney(t.amount)}</td>
+            </tr>`).join('')}
+           </tbody></table>`
+      }
+    </div>
+
     <div style="display:flex; gap:10px;">
       <button class="btn-outline" onclick="exportExcel()">Excelga export qilish</button>
       <button class="btn-outline" onclick="document.getElementById('import-file-input').click()">Mijozlarni import qilish (Excel/CSV)</button>
@@ -574,18 +1097,33 @@ function showCustomer(id){
   const main = document.getElementById('main');
   if(!c){ showDashboard(); return; }
 
+  const today = todayISO();
+  const allocations = computeDebtAllocations(id);
+  const allocByTxnId = {};
+  allocations.forEach(a => { allocByTxnId[a.txn.id] = a; });
+  const totalXarid = allocations.reduce((s,a)=>s+a.txn.amount,0);
+  const totalTolov = c.transactions.filter(t=>t.type==='payment').reduce((s,t)=>s+t.amount,0);
+
   const balClass = c.balance > 0 ? "balance-pos" : (c.balance < 0 ? "amount-payment" : "");
   main.innerHTML = `
     <div class="customer-header">
       <div>
         <div class="name">${esc(c.name)}</div>
         <div class="phone">${esc(c.phone || "Telefon kiritilmagan")}</div>
+        ${c.address ? `<div class="phone" style="margin-top:2px;">📍 ${esc(c.address)}</div>` : ''}
       </div>
       <div class="balance-box">
         <div class="label">Joriy qarz miqdori</div>
         <div class="val ${balClass}">${c.balance === 0 ? "0" : fmtMoney(Math.abs(c.balance))}${c.balance < 0 ? " (ortiqcha to'lov)" : ""}</div>
       </div>
     </div>
+
+    <div class="stat-grid" style="margin-bottom:18px;">
+      <div class="stat-card"><div class="label">Jami xarid</div><div class="value">${fmtMoney(totalXarid)}</div></div>
+      <div class="stat-card"><div class="label">Jami to'langan</div><div class="value">${fmtMoney(totalTolov)}</div></div>
+      <div class="stat-card debt"><div class="label">Qolgan qarz</div><div class="value">${fmtMoney(Math.max(c.balance,0))}</div></div>
+    </div>
+
     <div class="actions-row">
       <button class="btn-red" onclick="openTxnModal('debt','${c.id}')">+ Qarz qo'shish</button>
       <button class="btn-green" onclick="openTxnModal('payment','${c.id}')">+ To'lov qo'shish</button>
@@ -602,9 +1140,12 @@ function showCustomer(id){
       ${c.transactions.length === 0
         ? `<div class="empty-msg">Hali tranzaksiya yo'q.</div>`
         : `<table><thead><tr>
-            <th>Sana</th><th>Tavsif</th><th>Miqdor</th><th>Narx</th><th style="text-align:right;">Summa</th><th style="text-align:right;">Qarz miqdori</th><th></th>
+            <th>Sana</th><th>Tavsif</th><th>Miqdor</th><th>Narx</th><th style="text-align:right;">Summa</th><th style="text-align:right;">Qarz miqdori</th><th>Muddat</th><th>Holat</th><th></th>
            </tr></thead><tbody>
-            ${c.transactions.map(t=>`<tr>
+            ${c.transactions.map(t=>{
+              const alloc = allocByTxnId[t.id];
+              const status = t.type==='debt' ? debtStatus(alloc || {txn:t, remaining:t.amount, paid:0}, today) : null;
+              return `<tr>
               <td>${esc(t.date)}</td>
               <td>${esc(t.description || "—")}</td>
               <td>${t.qty != null ? t.qty : "—"}</td>
@@ -613,8 +1154,14 @@ function showCustomer(id){
                 ${t.type==='debt' ? '+' : '−'}${fmtMoney(t.amount)}
               </td>
               <td style="text-align:right;">${fmtMoney(t.runningBalance)}</td>
-              <td><button class="btn-danger-text" onclick="confirmDeleteTxn('${t.id}','${c.id}')">O'chirish</button></td>
-            </tr>`).join('')}
+              <td>${t.type==='debt' ? esc(t.dueDate || "—") : "—"}</td>
+              <td style="white-space:nowrap;">${status ? `${status.emoji} <span style="font-size:11.5px;">${status.label}</span>` : "—"}</td>
+              <td style="white-space:nowrap;">
+                <button class="btn-outline btn-small" onclick="openTxnModal('${t.type}','${c.id}','${t.id}')">Tahrirlash</button>
+                <button class="btn-danger-text" onclick="confirmDeleteTxn('${t.id}','${c.id}')">O'chirish</button>
+              </td>
+            </tr>`;
+            }).join('')}
            </tbody></table>`
       }
     </div>
@@ -627,6 +1174,7 @@ function showProducts(){
   renderSidebar();
   const products = listProducts();
   const main = document.getElementById('main');
+  const anyLow = products.some(isLowStock);
   main.innerHTML = `
     <h2 class="page-title">Mahsulotlar katalogi</h2>
     <div class="panel">
@@ -636,18 +1184,24 @@ function showProducts(){
       </div>
       ${products.length === 0
         ? `<div class="empty-msg">Hali mahsulot yo'q. Qarz qo'shishda mahsulotni ro'yxatdan tanlashi uchun avval shu yerga qo'shib qo'ying.</div>`
-        : `<table><thead><tr><th>Nomi</th><th>O'lchov birligi</th><th style="text-align:right;">Narxi</th><th></th></tr></thead><tbody>
-            ${products.map(p=>`<tr>
+        : `<table><thead><tr><th>Nomi</th><th>O'lchov birligi</th><th style="text-align:right;">Narxi</th><th style="text-align:right;">Qoldiq</th><th style="text-align:right;">Sotilgan</th><th></th></tr></thead><tbody>
+            ${products.map(p=>{
+              const low = isLowStock(p);
+              return `<tr>
               <td>${esc(p.name)}</td>
               <td>${esc(p.unit || "—")}</td>
               <td style="text-align:right;">${fmtMoney(p.price)}</td>
+              <td style="text-align:right;" class="${low?'amount-debt':''}">${p.stock != null ? p.stock : "—"}${low ? ' ⚠️' : ''}</td>
+              <td style="text-align:right;">${p.sold || 0}</td>
               <td style="text-align:right;">
                 <button class="btn-outline btn-small" onclick="openProductModal('${p.id}')">Tahrirlash</button>
                 <button class="btn-danger-text" onclick="confirmDeleteProduct('${p.id}')">O'chirish</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;
+            }).join('')}
            </tbody></table>`
       }
+      ${anyLow ? `<div class="amount-hint" style="color:var(--red); margin-top:10px; font-weight:600;">⚠️ Mahsulot qoldig'i kam — yuqoridagi ro'yxatda belgilangan.</div>` : ''}
     </div>
   `;
 }
@@ -672,6 +1226,10 @@ function openProductModal(editId){
         <input type="number" id="prod-price" value="${p ? p.price : ''}" placeholder="0" step="any">
       </div>
     </div>
+    <div class="field">
+      <label>Qoldiq (ixtiyoriy — bo'sh qoldirilsa kuzatilmaydi)</label>
+      <input type="number" id="prod-stock" value="${p && p.stock != null ? p.stock : ''}" placeholder="masalan: 50" step="any" min="0">
+    </div>
     <div class="err-msg" id="prod-err"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
@@ -685,14 +1243,16 @@ function submitProductModal(editId){
   const name = document.getElementById('prod-name').value;
   const unit = document.getElementById('prod-unit').value;
   const price = document.getElementById('prod-price').value;
+  const stock = document.getElementById('prod-stock').value;
   try{
     if(editId){
-      updateProduct(editId, name, unit, price);
+      updateProduct(editId, name, unit, price, stock);
     }else{
-      addProduct(name, unit, price);
+      addProduct(name, unit, price, stock);
     }
     closeModal();
     showProducts();
+    toast("Mahsulot saqlandi.", 'success');
   }catch(e){
     document.getElementById('prod-err').textContent = e.message;
   }
@@ -725,7 +1285,7 @@ function confirmDeleteTxn(txnId, customerId){
 /* ============ ESLATMA MATNI ============ */
 function buildReminderText(c){
   const balanceStr = fmtMoney(c.balance);
-  return `Assalomu alaykum, ${c.name}!\n\nOsiyo Travertin nomidan xabar beramiz: hozirgi qarzingiz ${balanceStr} ni tashkil etmoqda. Iltimos, imkon qadar tezroq to'lovni amalga oshirishingizni so'raymiz.\n\nSavol bo'lsa, bemalol bog'laning. Rahmat!`;
+  return `Assalomu alaykum, ${c.name}!\n\n${companyName()} nomidan xabar beramiz: hozirgi qarzingiz ${balanceStr} ni tashkil etmoqda. Iltimos, imkon qadar tezroq to'lovni amalga oshirishingizni so'raymiz.\n\nSavol bo'lsa, bemalol bog'laning. Rahmat!`;
 }
 function openReminderModal(customerId){
   const c = getCustomer(customerId);
@@ -760,7 +1320,7 @@ function copyReminderText(){
   }
 }
 
-/* ============ CHOP ETISH / PDF ============ */
+/* ============ CHOP ETISH / PDF: MIJOZ VARAQASI (o'zgartirilmagan) ============ */
 function printCustomerStatement(customerId){
   const c = getCustomer(customerId);
   if(!c) return;
@@ -787,7 +1347,7 @@ function printCustomerStatement(customerId){
   @media print{ body{padding:14px;} }
 </style></head>
 <body>
-  <h1>Osiyo Travertin</h1>
+  ${printHeaderHtml()}
   <div class="sub">Qarz varaqasi — ${today} holatiga</div>
   <div class="info-row">
     <div>
@@ -813,7 +1373,7 @@ function printCustomerStatement(customerId){
       </tr>`).join('')}
     </tbody>
   </table>`}
-  <div class="footer">Hujjat ${today} sanasida yaratildi — Osiyo Travertin Qarz Daftari</div>
+  <div class="footer">Hujjat ${today} sanasida yaratildi — ${esc(companyName())} · Qarz Daftari</div>
 </body></html>`;
   const win = window.open('', '_blank');
   if(!win){
@@ -841,6 +1401,10 @@ function openCustomerModal(editId){
       <label>Telefon</label>
       <input type="text" id="cust-phone" value="${c ? esc(c.phone||'') : ''}" placeholder="+998 ...">
     </div>
+    <div class="field">
+      <label>Manzil (ixtiyoriy)</label>
+      <input type="text" id="cust-address" value="${c ? esc(c.address||'') : ''}" placeholder="Shahar, ko'cha...">
+    </div>
     <div class="err-msg" id="cust-err"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
@@ -853,13 +1417,14 @@ function openCustomerModal(editId){
 function submitCustomerModal(editId){
   const name = document.getElementById('cust-name').value;
   const phone = document.getElementById('cust-phone').value;
+  const address = document.getElementById('cust-address').value;
   try{
     if(editId){
-      updateCustomer(editId, name, phone);
+      updateCustomer(editId, name, phone, address);
       closeModal();
       showCustomer(editId);
     }else{
-      const c = addCustomer(name, phone);
+      const c = addCustomer(name, phone, address);
       closeModal();
       showCustomer(c.id);
     }
@@ -870,15 +1435,18 @@ function submitCustomerModal(editId){
 
 /* ============ MODAL: TRANZAKSIYA QO'SHISH ============ */
 let txnType = "debt";
-function openTxnModal(type, customerId){
+function openTxnModal(type, customerId, editId){
   txnType = type;
+  const editing = !!editId;
+  const editingTxn = editing ? DATA.transactions.find(t=>t.id===editId) : null;
   const box = document.getElementById('modal-box');
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayISO();
   const products = listProducts();
   const productRowStyle = type === 'debt' ? '' : 'style="display:none;"';
   const qtyPriceRowStyle = type === 'debt' ? '' : 'style="display:none;"';
+  const dueDateRowStyle = type === 'debt' ? '' : 'style="display:none;"';
   box.innerHTML = `
-    <h3>Tranzaksiya qo'shish</h3>
+    <h3>${editing ? "Tranzaksiyani tahrirlash" : "Tranzaksiya qo'shish"}</h3>
     <div class="type-toggle">
       <button id="type-debt-btn" class="${type==='debt'?'active-debt':'inactive'}" onclick="setTxnType('debt')">Qarz</button>
       <button id="type-payment-btn" class="${type==='payment'?'active-payment':'inactive'}" onclick="setTxnType('payment')">To'lov</button>
@@ -887,43 +1455,49 @@ function openTxnModal(type, customerId){
       <label>Mahsulot</label>
       <select id="txn-product" onchange="onProductSelect()">
         <option value="">— Qo'lda kiritish —</option>
-        ${products.map(p=>`<option value="${p.id}">${esc(p.name)} (${fmtMoney(p.price)}${p.unit ? '/'+esc(p.unit) : ''})</option>`).join('')}
+        ${products.map(p=>`<option value="${p.id}" ${editingTxn && editingTxn.productId===p.id ? 'selected' : ''}>${esc(p.name)} (${fmtMoney(p.price)}${p.unit ? '/'+esc(p.unit) : ''})</option>`).join('')}
       </select>
       ${products.length === 0 ? `<div class="amount-hint">Hali mahsulot qo'shilmagan — "Mahsulotlar" bo'limidan qo'shib qo'ysangiz, shu yerdan tanlab olish mumkin bo'ladi.</div>` : ''}
     </div>
     <div class="field">
       <label>Sana</label>
-      <input type="date" id="txn-date" value="${today}">
+      <input type="date" id="txn-date" value="${editingTxn ? editingTxn.date : today}">
     </div>
     <div class="field" id="txn-desc-row" ${type === 'debt' ? '' : 'style="display:none;"'}>
       <label>Tavsif</label>
-      <input type="text" id="txn-desc" placeholder="Masalan: travertin plita 2x1m">
+      <input type="text" id="txn-desc" value="${editingTxn ? esc(editingTxn.description||'') : ''}" placeholder="Masalan: travertin plita 2x1m">
     </div>
     <div class="field-row" id="txn-qtyprice-row" ${qtyPriceRowStyle}>
       <div class="field">
         <label>Miqdor</label>
-        <input type="number" id="txn-qty" placeholder="0" step="any" oninput="recalcAmount()">
+        <input type="number" id="txn-qty" value="${editingTxn && editingTxn.qty != null ? editingTxn.qty : ''}" placeholder="0" step="any" oninput="recalcAmount()">
       </div>
       <div class="field">
         <label>Narx (dona)</label>
-        <input type="number" id="txn-price" placeholder="0" step="any" oninput="recalcAmount()">
+        <input type="number" id="txn-price" value="${editingTxn && editingTxn.price != null ? editingTxn.price : ''}" placeholder="0" step="any" oninput="recalcAmount()">
       </div>
+    </div>
+    <div class="field" id="txn-duedate-row" ${dueDateRowStyle}>
+      <label>To'lash muddati (ixtiyoriy)</label>
+      <input type="date" id="txn-duedate" value="${editingTxn && editingTxn.dueDate ? editingTxn.dueDate : ''}">
     </div>
     <div class="field">
       <label id="txn-amount-label">${type === 'debt' ? 'Summa' : "Qancha pul berdi (summa)"}</label>
-      <input type="number" id="txn-amount" placeholder="0" step="any">
+      <input type="number" id="txn-amount" value="${editingTxn ? editingTxn.amount : ''}" placeholder="0" step="any" oninput="updateAmountWords()">
     </div>
+    <div class="amount-hint" id="txn-amount-words" style="color:var(--gold-dark); font-weight:600;"></div>
     <div class="amount-hint" id="txn-amount-hint">${type === 'debt'
       ? "Mahsulot tanlansa narx avtomatik to'ladi; miqdor kiritilsa summa avtomatik hisoblanadi (kerak bo'lsa summani qo'lda ham o'zgartirsa bo'ladi)."
       : "Faqat sana va mijoz qancha pul berganini kiriting."}</div>
     <div class="err-msg" id="txn-err"></div>
     <div class="modal-actions">
       <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
-      <button class="btn-gold" onclick="submitTxnModal('${customerId}')">Saqlash</button>
+      <button class="btn-gold" onclick="submitTxnModal('${customerId}'${editing ? `,'${editId}'` : ''})">Saqlash</button>
     </div>
   `;
   showModal();
-  if(type !== 'debt'){
+  updateAmountWords();
+  if(type !== 'debt' && !editing){
     document.getElementById('txn-amount').focus();
   }
 }
@@ -935,9 +1509,11 @@ function setTxnType(type){
   const productRow = document.getElementById('txn-product-row');
   const descRow = document.getElementById('txn-desc-row');
   const qtyPriceRow = document.getElementById('txn-qtyprice-row');
+  const dueDateRow = document.getElementById('txn-duedate-row');
   if(productRow) productRow.style.display = show;
   if(descRow) descRow.style.display = show;
   if(qtyPriceRow) qtyPriceRow.style.display = show;
+  if(dueDateRow) dueDateRow.style.display = show;
   document.getElementById('txn-amount-label').textContent = type === 'debt' ? 'Summa' : "Qancha pul berdi (summa)";
   document.getElementById('txn-amount-hint').textContent = type === 'debt'
     ? "Mahsulot tanlansa narx avtomatik to'ladi; miqdor kiritilsa summa avtomatik hisoblanadi (kerak bo'lsa summani qo'lda ham o'zgartirsa bo'ladi)."
@@ -961,8 +1537,23 @@ function recalcAmount(){
   if(!isNaN(q) && !isNaN(p)){
     document.getElementById('txn-amount').value = (q*p).toString();
   }
+  updateAmountWords();
 }
-function submitTxnModal(customerId){
+/* Summani so'z bilan real vaqtda ko'rsatib turadi — shu orqali "300"
+   o'rniga adashib "3000" kiritilgan holatlar saqlashdan oldin ko'rinib
+   qoladi. */
+function updateAmountWords(){
+  const wordsEl = document.getElementById('txn-amount-words');
+  if(!wordsEl) return;
+  const amountEl = document.getElementById('txn-amount');
+  const amt = amountEl ? parseFloat(amountEl.value) : NaN;
+  if(!amt || isNaN(amt) || amt <= 0){
+    wordsEl.textContent = "";
+    return;
+  }
+  wordsEl.textContent = "So'z bilan: " + fmtMoneyWords(amt);
+}
+function submitTxnModal(customerId, editId){
   const date = document.getElementById('txn-date').value;
   const description = document.getElementById('txn-desc').value;
   const qty = document.getElementById('txn-qty').value;
@@ -970,10 +1561,21 @@ function submitTxnModal(customerId){
   const amount = document.getElementById('txn-amount').value;
   const productEl = document.getElementById('txn-product');
   const productId = productEl && productEl.value ? productEl.value : null;
+  const dueDateEl = document.getElementById('txn-duedate');
+  const dueDate = dueDateEl && dueDateEl.value ? dueDateEl.value : null;
   try{
-    addTransaction(customerId, {date, description, qty, price, amount, type:txnType, productId});
+    const txn = editId
+      ? updateTransaction(editId, {date, description, qty, price, amount, type:txnType, productId, dueDate})
+      : addTransaction(customerId, {date, description, qty, price, amount, type:txnType, productId, dueDate});
     closeModal();
     showCustomer(customerId);
+    toast(editId ? "Tranzaksiya yangilandi." : "Tranzaksiya saqlandi.", 'success');
+    if(txn.productId){
+      const product = DATA.products.find(p=>p.id===txn.productId);
+      if(product && isLowStock(product)){
+        toast(`⚠️ Mahsulot qoldig'i kam: "${product.name}" — ${product.stock}${product.unit ? ' '+product.unit : ''} qoldi.`, 'warn');
+      }
+    }
   }catch(e){
     document.getElementById('txn-err').textContent = e.message;
   }
@@ -995,8 +1597,17 @@ document.getElementById('debtors-only-check').addEventListener('change', (e)=>{
   debtorsOnly = e.target.checked;
   renderSidebar();
 });
+(function bindFilterSelect(){
+  const filterSelectEl = document.getElementById('customer-filter-select');
+  if(filterSelectEl){
+    filterSelectEl.addEventListener('change', (e)=>{
+      sidebarFilter = e.target.value;
+      renderSidebar();
+    });
+  }
+})();
 
-/* ============ EXCEL EXPORT ============ */
+/* ============ EXCEL EXPORT (o'zgartirilmagan) ============ */
 function exportExcel(){
   if(typeof XLSX === 'undefined'){
     alert("Excel export kutubxonasi yuklanmadi — internet aloqasini tekshiring va sahifani qayta yuklang.");
@@ -1032,14 +1643,11 @@ function exportExcel(){
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  const dateStr = new Date().toISOString().slice(0,10);
+  const dateStr = todayISO();
   XLSX.writeFile(wb, `Qarz_Daftari_${dateStr}.xlsx`);
 }
 
-/* ============ MIJOZLARNI IMPORT QILISH (Excel/CSV) ============ */
-// Bot admin (yoki boshqa manba)dan olingan mijozlar ro'yxatini fayldan o'qib,
-// ommaviy ravishda qo'shib beradi. Ustunlar nomi moslashuvchan aniqlanadi:
-// "Ism"/"Name"/"F.I.O" va "Telefon"/"Phone"/"Raqam" kabi variantlarni tanidi.
+/* ============ MIJOZLARNI IMPORT QILISH (Excel/CSV) — o'zgartirilmagan ============ */
 function handleImportFile(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -1095,8 +1703,587 @@ function handleImportFile(event){
   reader.readAsArrayBuffer(file);
 }
 
-/* ============ DARK / LIGHT REJIM ============ */
-const THEME_KEY = "qarz_daftari_theme";
+/* ============ HISOBOTLAR (yangi) ============ */
+let reportsRange = {preset:'today', from:null, to:null};
+
+function getPresetRange(preset){
+  const now = new Date();
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  switch(preset){
+    case 'today': { const d = startOfDay(now); return {from:dateToISO(d), to:dateToISO(d)}; }
+    case 'yesterday': { const d = startOfDay(now); d.setDate(d.getDate()-1); return {from:dateToISO(d), to:dateToISO(d)}; }
+    case 'week': {
+      const d = startOfDay(now);
+      const day = (d.getDay()+6)%7; // dushanba=0 boshlanadi
+      const start = new Date(d); start.setDate(d.getDate()-day);
+      return {from:dateToISO(start), to:dateToISO(d)};
+    }
+    case 'month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {from:dateToISO(start), to:dateToISO(startOfDay(now))};
+    }
+    case 'lastmonth': {
+      const start = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      return {from:dateToISO(start), to:dateToISO(end)};
+    }
+    default: return {from:todayISO(), to:todayISO()};
+  }
+}
+
+function computeReport(from, to){
+  const inRange = t => (!from || t.date >= from) && (!to || t.date <= to);
+  const txns = DATA.transactions.filter(inRange);
+  const sales = txns.filter(t=>t.type==='debt');
+  const payments = txns.filter(t=>t.type==='payment');
+  const totalSales = sales.reduce((s,t)=>s+t.amount,0);
+  const totalPayments = payments.reduce((s,t)=>s+t.amount,0);
+  const newCustomers = DATA.customers.filter(c => {
+    if(!c.createdAt) return false;
+    const d = dateToISO(new Date(c.createdAt));
+    return d >= from && d <= to;
+  }).length;
+  return {
+    from, to, totalSales, totalPayments,
+    totalDebtDelta: totalSales - totalPayments,
+    newCustomers, salesCount: sales.length, paymentsCount: payments.length,
+    sales, payments
+  };
+}
+
+function showReports(){
+  currentCustomerId = null;
+  renderSidebar();
+  renderReportsPage(reportsRange.preset || 'today');
+}
+
+function renderReportsPage(preset, customFrom, customTo){
+  reportsRange.preset = preset || reportsRange.preset || 'today';
+  let range;
+  if(reportsRange.preset === 'custom'){
+    range = {from: customFrom || reportsRange.from || todayISO(), to: customTo || reportsRange.to || todayISO()};
+  }else{
+    range = getPresetRange(reportsRange.preset);
+  }
+  reportsRange.from = range.from;
+  reportsRange.to = range.to;
+  const report = computeReport(range.from, range.to);
+
+  const presets = [
+    {key:'today', label:'Bugun'},
+    {key:'yesterday', label:'Kecha'},
+    {key:'week', label:'Shu hafta'},
+    {key:'month', label:'Shu oy'},
+    {key:'lastmonth', label:"O'tgan oy"},
+    {key:'custom', label:'Boshqa oraliq'}
+  ];
+
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <h2 class="page-title">Hisobotlar</h2>
+    <div class="panel">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; ${reportsRange.preset==='custom' ? 'margin-bottom:14px;' : ''}">
+        ${presets.map(p => `<button class="btn-small ${reportsRange.preset===p.key?'btn-gold':'btn-outline'}" onclick="renderReportsPage('${p.key}')">${p.label}</button>`).join('')}
+      </div>
+      ${reportsRange.preset === 'custom' ? `
+        <div class="field-row" style="align-items:flex-end;">
+          <div class="field"><label>Dan</label><input type="date" id="report-from" value="${range.from}"></div>
+          <div class="field"><label>Gacha</label><input type="date" id="report-to" value="${range.to}"></div>
+          <div class="field" style="flex:0;"><button class="btn-gold" onclick="renderReportsPage('custom', document.getElementById('report-from').value, document.getElementById('report-to').value)">Ko'rsatish</button></div>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="label">Jami savdo</div><div class="value">${fmtMoney(report.totalSales)}</div></div>
+      <div class="stat-card"><div class="label">Jami to'lov</div><div class="value">${fmtMoney(report.totalPayments)}</div></div>
+      <div class="stat-card debt"><div class="label">Sof qarz o'zgarishi</div><div class="value">${fmtMoney(report.totalDebtDelta)}</div></div>
+      <div class="stat-card"><div class="label">Yangi mijozlar</div><div class="value">${report.newCustomers}</div></div>
+      <div class="stat-card"><div class="label">Savdolar soni</div><div class="value">${report.salesCount}</div></div>
+      <div class="stat-card"><div class="label">To'lovlar soni</div><div class="value">${report.paymentsCount}</div></div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Davr: ${esc(range.from)} — ${esc(range.to)}</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-outline btn-small" onclick="exportReportExcel()">Excelga eksport</button>
+          <button class="btn-outline btn-small" onclick="printReport()">Chop etish / PDF</button>
+        </div>
+      </div>
+      ${(report.sales.length + report.payments.length) === 0
+        ? `<div class="empty-msg">Bu davrda tranzaksiya topilmadi.</div>`
+        : `<table><thead><tr><th>Sana</th><th>Mijoz</th><th>Turi</th><th>Tavsif</th><th style="text-align:right;">Summa</th></tr></thead><tbody>
+            ${[...report.sales, ...report.payments].sort((a,b)=>(b.date+b.createdAt).localeCompare(a.date+a.createdAt)).map(t => {
+              const cust = DATA.customers.find(c=>c.id===t.customerId);
+              return `<tr>
+                <td>${esc(t.date)}</td>
+                <td>${esc(cust ? cust.name : "—")}</td>
+                <td>${t.type==='debt' ? 'Savdo' : "To'lov"}</td>
+                <td>${esc(t.description||"—")}</td>
+                <td style="text-align:right;" class="${t.type==='debt'?'amount-debt':'amount-payment'}">${fmtMoney(t.amount)}</td>
+              </tr>`;
+            }).join('')}
+           </tbody></table>`
+      }
+    </div>
+  `;
+}
+
+function exportReportExcel(){
+  if(typeof XLSX === 'undefined'){
+    alert("Excel export kutubxonasi yuklanmadi — internet aloqasini tekshiring va sahifani qayta yuklang.");
+    return;
+  }
+  const report = computeReport(reportsRange.from, reportsRange.to);
+  const wb = XLSX.utils.book_new();
+  const summary = [{
+    "Davr boshi": report.from, "Davr oxiri": report.to,
+    "Jami savdo": report.totalSales, "Jami to'lov": report.totalPayments,
+    "Sof qarz o'zgarishi": report.totalDebtDelta, "Yangi mijozlar": report.newCustomers,
+    "Savdolar soni": report.salesCount, "To'lovlar soni": report.paymentsCount
+  }];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Xulosa");
+  const rows = [...report.sales, ...report.payments].sort((a,b)=>(a.date+a.createdAt).localeCompare(b.date+b.createdAt)).map(t=>{
+    const cust = DATA.customers.find(c=>c.id===t.customerId);
+    return {"Sana":t.date, "Mijoz": cust?cust.name:"—", "Turi": t.type==='debt'?'Savdo':"To'lov", "Tavsif":t.description||"", "Summa":t.amount};
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length?rows:[{"Ma'lumot":"Tranzaksiya yo'q"}]), "Tranzaksiyalar");
+  XLSX.writeFile(wb, `Hisobot_${reportsRange.from}_${reportsRange.to}.xlsx`);
+}
+
+function printReport(){
+  const report = computeReport(reportsRange.from, reportsRange.to);
+  const rows = [...report.sales, ...report.payments].sort((a,b)=>(a.date+a.createdAt).localeCompare(b.date+b.createdAt));
+  const html = `<!DOCTYPE html>
+<html lang="uz"><head><meta charset="UTF-8"><title>Hisobot — ${esc(report.from)} — ${esc(report.to)}</title>
+<style>
+  body{font-family:"Segoe UI", Tahoma, Arial, sans-serif; color:#2B3A4A; padding:36px; max-width:900px; margin:0 auto;}
+  h1{color:#8C6528; font-size:20px; margin:0 0 2px 0;}
+  .sub{color:#8a8578; font-size:12px; margin-bottom:20px;}
+  .stat-row{display:flex; flex-wrap:wrap; gap:14px; margin-bottom:20px;}
+  .stat{border:1px solid #E3D8C4; border-radius:8px; padding:10px 14px; min-width:150px;}
+  .stat .l{font-size:11px; color:#8a8578;}
+  .stat .v{font-size:16px; font-weight:700;}
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  th{text-align:left; padding:6px 8px; border-bottom:1px solid #2B3A4A; font-size:10.5px; text-transform:uppercase; color:#555;}
+  td{padding:6px 8px; border-bottom:1px solid #eee;}
+  .debt{color:#B0453A; font-weight:600;} .payment{color:#3F7D51; font-weight:600;}
+  @media print{ body{padding:14px;} }
+</style></head>
+<body>
+  ${printHeaderHtml(false, ' — Hisobot')}
+  <div class="sub">Davr: ${esc(report.from)} — ${esc(report.to)}</div>
+  <div class="stat-row">
+    <div class="stat"><div class="l">Jami savdo</div><div class="v">${fmtMoney(report.totalSales)}</div></div>
+    <div class="stat"><div class="l">Jami to'lov</div><div class="v">${fmtMoney(report.totalPayments)}</div></div>
+    <div class="stat"><div class="l">Sof qarz o'zgarishi</div><div class="v">${fmtMoney(report.totalDebtDelta)}</div></div>
+    <div class="stat"><div class="l">Yangi mijozlar</div><div class="v">${report.newCustomers}</div></div>
+    <div class="stat"><div class="l">Savdolar soni</div><div class="v">${report.salesCount}</div></div>
+    <div class="stat"><div class="l">To'lovlar soni</div><div class="v">${report.paymentsCount}</div></div>
+  </div>
+  ${rows.length===0 ? `<p>Tranzaksiya yo'q.</p>` : `
+  <table><thead><tr><th>Sana</th><th>Mijoz</th><th>Turi</th><th>Tavsif</th><th>Summa</th></tr></thead><tbody>
+    ${rows.map(t=>{
+      const cust = DATA.customers.find(c=>c.id===t.customerId);
+      return `<tr><td>${esc(t.date)}</td><td>${esc(cust?cust.name:"—")}</td><td class="${t.type==='debt'?'debt':'payment'}">${t.type==='debt'?'Savdo':"To'lov"}</td><td>${esc(t.description||"—")}</td><td class="${t.type==='debt'?'debt':'payment'}">${fmtMoney(t.amount)}</td></tr>`;
+    }).join('')}
+  </tbody></table>`}
+</body></html>`;
+  const win = window.open('', '_blank');
+  if(!win){
+    alert("Yangi oyna ochilmadi — brauzeringizda popup bloklanmagan bo'lishi mumkin, ruxsat bering va qayta urinib ko'ring.");
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+  setTimeout(() => { try{ win.focus(); win.print(); }catch(e){} }, 400);
+}
+
+/* ============ BACKUP / RESTORE (yangi) ============ */
+function exportBackup(){
+  const backup = {
+    app: "osiyo-travertin-qarz-daftari",
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: DATA,
+    theme: (function(){ try{ return localStorage.getItem(THEME_KEY); }catch(e){ return null; } })()
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `qarzdaftar-backup-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  toast("Backup fayli yaratildi.", 'success');
+}
+function validateBackupShape(obj){
+  if(!obj || typeof obj !== 'object') return false;
+  if(!obj.data || typeof obj.data !== 'object') return false;
+  if(!Array.isArray(obj.data.customers) || !Array.isArray(obj.data.transactions) || !Array.isArray(obj.data.products)) return false;
+  return true;
+}
+function handleRestoreFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let parsed;
+    try{
+      parsed = JSON.parse(e.target.result);
+    }catch(err){
+      alert("Backup fayli noto'g'ri yoki buzilgan.");
+      event.target.value = "";
+      return;
+    }
+    if(!validateBackupShape(parsed)){
+      alert("Backup fayli noto'g'ri yoki buzilgan.");
+      event.target.value = "";
+      return;
+    }
+    if(!confirm("Barcha mavjud ma'lumotlar backup bilan almashtiriladi. Davom etasizmi?")){
+      event.target.value = "";
+      return;
+    }
+    try{
+      DATA = migrateData(parsed.data);
+      saveData();
+      if(parsed.theme){
+        try{ localStorage.setItem(THEME_KEY, parsed.theme); applyTheme(parsed.theme); }catch(err){}
+      }
+      toast("Ma'lumotlar muvaffaqiyatli tiklandi.", 'success');
+      applyCompanyBranding();
+      showDashboard();
+      if(!DATA.settings.companyName){
+        showCompanySetupScreen();
+      }
+    }catch(err){
+      alert("Backupni tiklashda xato: " + err.message);
+    }finally{
+      event.target.value = "";
+    }
+  };
+  reader.onerror = function(){
+    alert("Backup fayli noto'g'ri yoki buzilgan.");
+    event.target.value = "";
+  };
+  reader.readAsText(file);
+}
+
+/* ============ PIN HIMOYA (yangi) ============ */
+async function sha256Hex(text){
+  const enc = new TextEncoder().encode(text || "");
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function openPinSetupModal(){
+  const pinOn = !!(DATA.settings && DATA.settings.pinHash);
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `
+    <h3>${pinOn ? "PINni o'zgartirish" : "PIN o'rnatish"}</h3>
+    ${pinOn ? `<div class="field"><label>Joriy PIN</label><input type="password" id="pin-current" maxlength="12"></div>` : ''}
+    <div class="field"><label>Yangi PIN (4-8 raqam)</label><input type="password" id="pin-new" maxlength="12" inputmode="numeric"></div>
+    <div class="field"><label>Yangi PINni tasdiqlang</label><input type="password" id="pin-confirm" maxlength="12" inputmode="numeric"></div>
+    <div class="err-msg" id="pin-setup-err"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
+      <button class="btn-gold" onclick="submitPinSetup(${pinOn})">Saqlash</button>
+    </div>
+  `;
+  showModal();
+}
+async function submitPinSetup(pinOn){
+  const errEl = document.getElementById('pin-setup-err');
+  const newPin = document.getElementById('pin-new').value.trim();
+  const confirmPin = document.getElementById('pin-confirm').value.trim();
+  if(pinOn){
+    const current = document.getElementById('pin-current').value.trim();
+    const hash = await sha256Hex(current);
+    if(hash !== DATA.settings.pinHash){
+      errEl.textContent = "Joriy PIN noto'g'ri.";
+      return;
+    }
+  }
+  if(!/^\d{4,8}$/.test(newPin)){
+    errEl.textContent = "PIN 4 dan 8 tagacha raqamdan iborat bo'lishi kerak.";
+    return;
+  }
+  if(newPin !== confirmPin){
+    errEl.textContent = "PINlar mos kelmadi.";
+    return;
+  }
+  DATA.settings.pinHash = await sha256Hex(newPin);
+  saveData();
+  closeModal();
+  toast("PIN saqlandi.", 'success');
+  showSettings();
+}
+function openPinRemoveModal(){
+  const box = document.getElementById('modal-box');
+  box.innerHTML = `
+    <h3>PINni o'chirish</h3>
+    <div class="field"><label>Joriy PIN</label><input type="password" id="pin-remove-current" maxlength="12"></div>
+    <div class="err-msg" id="pin-remove-err"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
+      <button class="btn-red" onclick="submitPinRemove()">O'chirish</button>
+    </div>
+  `;
+  showModal();
+}
+async function submitPinRemove(){
+  const current = document.getElementById('pin-remove-current').value.trim();
+  const hash = await sha256Hex(current);
+  if(hash !== DATA.settings.pinHash){
+    document.getElementById('pin-remove-err').textContent = "PIN noto'g'ri.";
+    return;
+  }
+  DATA.settings.pinHash = null;
+  saveData();
+  closeModal();
+  toast("PIN o'chirildi.", 'success');
+  showSettings();
+}
+/* ============ KOMPANIYA SOZLASH — birinchi ishga tushirish (yangi) ============ */
+function showCompanySetupScreen(){
+  const overlay = document.getElementById('company-setup-overlay');
+  if(!overlay) return;
+  overlay.innerHTML = `
+    <div class="modal-box" style="width:420px;">
+      <h3>👋 Xush kelibsiz!</h3>
+      <p style="font-size:13px; color:var(--muted3); margin-top:-8px;">Dasturni sozlash uchun kompaniyangiz nomini kiriting. Bu nom endi sarlavha, chek, hisobot va qarz varaqalarida ko'rinadi.</p>
+      <div class="field">
+        <label>Kompaniya nomi *</label>
+        <input type="text" id="company-setup-name" placeholder="Masalan: Osiyo Travertin">
+      </div>
+      <div class="field">
+        <label>Logotip (ixtiyoriy)</label>
+        <div class="logo-preview-row">
+          <div class="logo-preview-box" id="company-setup-preview-box"></div>
+          <div>
+            <input type="file" id="company-setup-logo-file" accept="image/*" onchange="onCompanySetupLogoChange()">
+            <div class="amount-hint" style="margin-top:6px;">Yuklamasangiz, nomingiz asosida avtomatik logotip yaratiladi.</div>
+          </div>
+        </div>
+      </div>
+      <div class="err-msg" id="company-setup-err"></div>
+      <div class="modal-actions">
+        <button class="btn-gold" onclick="submitCompanySetup()">Saqlash va boshlash</button>
+      </div>
+    </div>`;
+  overlay.classList.add('show');
+  setTimeout(()=>{ const el = document.getElementById('company-setup-name'); if(el) el.focus(); }, 50);
+}
+function onCompanySetupLogoChange(){
+  const fileEl = document.getElementById('company-setup-logo-file');
+  const box = document.getElementById('company-setup-preview-box');
+  const file = fileEl.files && fileEl.files[0];
+  if(!file){ box.innerHTML = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => { box.innerHTML = `<img src="${e.target.result}" alt="">`; };
+  reader.readAsDataURL(file);
+}
+async function submitCompanySetup(){
+  const errEl = document.getElementById('company-setup-err');
+  const name = document.getElementById('company-setup-name').value.trim();
+  if(!name){
+    errEl.textContent = "Kompaniya nomini kiriting.";
+    return;
+  }
+  const fileEl = document.getElementById('company-setup-logo-file');
+  const file = fileEl.files && fileEl.files[0];
+  let logoDataUrl;
+  if(file){
+    const rawDataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+    logoDataUrl = await resizeImageDataUrl(rawDataUrl, 256);
+  }else{
+    logoDataUrl = generateMonogramLogo(name);
+  }
+  DATA.settings.companyName = name;
+  DATA.settings.companyLogo = logoDataUrl;
+  saveData();
+  document.getElementById('company-setup-overlay').classList.remove('show');
+  applyCompanyBranding();
+  showDashboard();
+  toast(`Xush kelibsiz, ${name}!`, 'success');
+  initPinLock();
+}
+
+/* ============ KOMPANIYA SOZLAMALARINI KEYINROQ O'ZGARTIRISH (yangi) ============ */
+function openCompanySettingsModal(){
+  const box = document.getElementById('modal-box');
+  const logo = companyLogo();
+  box.innerHTML = `
+    <h3>Kompaniya nomi / logotipi</h3>
+    <div class="field">
+      <label>Kompaniya nomi *</label>
+      <input type="text" id="company-edit-name" value="${esc(companyName())}">
+    </div>
+    <div class="field">
+      <label>Logotip</label>
+      <div class="logo-preview-row">
+        <div class="logo-preview-box" id="company-edit-preview-box">${logo ? `<img src="${logo}" alt="">` : ''}</div>
+        <div>
+          <input type="file" id="company-edit-logo-file" accept="image/*" onchange="onCompanyEditLogoChange()">
+          <div class="amount-hint" style="margin-top:6px;">Yangi rasm tanlamasangiz, joriy logotip saqlanadi.</div>
+        </div>
+      </div>
+    </div>
+    <div class="err-msg" id="company-edit-err"></div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal()">Bekor qilish</button>
+      <button class="btn-gold" onclick="submitCompanySettings()">Saqlash</button>
+    </div>
+  `;
+  showModal();
+  document.getElementById('company-edit-name').focus();
+}
+function onCompanyEditLogoChange(){
+  const fileEl = document.getElementById('company-edit-logo-file');
+  const box = document.getElementById('company-edit-preview-box');
+  const file = fileEl.files && fileEl.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { box.innerHTML = `<img src="${e.target.result}" alt="">`; };
+  reader.readAsDataURL(file);
+}
+async function submitCompanySettings(){
+  const errEl = document.getElementById('company-edit-err');
+  const name = document.getElementById('company-edit-name').value.trim();
+  if(!name){
+    errEl.textContent = "Kompaniya nomini kiriting.";
+    return;
+  }
+  const fileEl = document.getElementById('company-edit-logo-file');
+  const file = fileEl.files && fileEl.files[0];
+  let logoDataUrl = companyLogo();
+  if(file){
+    const rawDataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+    logoDataUrl = await resizeImageDataUrl(rawDataUrl, 256);
+  }
+  DATA.settings.companyName = name;
+  DATA.settings.companyLogo = logoDataUrl;
+  saveData();
+  closeModal();
+  applyCompanyBranding();
+  toast("Kompaniya ma'lumotlari saqlandi.", 'success');
+  showSettings();
+}
+
+function initPinLock(){
+  if(DATA.settings && DATA.settings.pinHash){
+    showPinLockScreen();
+  }
+}
+function showPinLockScreen(){
+  const overlay = document.getElementById('pin-lock-overlay');
+  if(!overlay) return;
+  overlay.innerHTML = `
+    <div class="modal-box" style="text-align:center;">
+      <h3>🔒 Dastur qulflangan</h3>
+      <div class="field">
+        <input type="password" id="pin-lock-input" maxlength="12" placeholder="PIN kodni kiriting" style="text-align:center; font-size:18px; letter-spacing:4px;">
+      </div>
+      <div class="err-msg" id="pin-lock-err"></div>
+      <div class="modal-actions" style="justify-content:center;">
+        <button class="btn-gold" onclick="submitPinUnlock()">Kirish</button>
+      </div>
+    </div>`;
+  overlay.classList.add('show');
+  const input = document.getElementById('pin-lock-input');
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') submitPinUnlock(); });
+  setTimeout(()=>input.focus(), 50);
+}
+async function submitPinUnlock(){
+  const inputEl = document.getElementById('pin-lock-input');
+  const val = inputEl.value;
+  const hash = await sha256Hex(val);
+  if(hash === DATA.settings.pinHash){
+    document.getElementById('pin-lock-overlay').classList.remove('show');
+  }else{
+    document.getElementById('pin-lock-err').textContent = "PIN noto'g'ri. Qayta urinib ko'ring.";
+    inputEl.value = "";
+    inputEl.focus();
+  }
+}
+
+/* ============ SOZLAMALAR SAHIFASI (yangi) ============ */
+function showSettings(){
+  currentCustomerId = null;
+  renderSidebar();
+  const main = document.getElementById('main');
+  const pinOn = !!(DATA.settings && DATA.settings.pinHash);
+  main.innerHTML = `
+    <h2 class="page-title">Sozlamalar</h2>
+
+    <div class="panel">
+      <h3>🏢 Kompaniya</h3>
+      <p style="font-size:13px; color:var(--muted3); margin-top:0;">Kompaniya nomi va logotipi dastur ichida (sarlavha, chek, hisobot, qarz varaqasi va eslatma matnida) ko'rinadi.</p>
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+        <img id="company-settings-logo-preview" src="${companyLogo() || ''}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border); ${companyLogo() ? '' : 'display:none;'}">
+        <div>
+          <div style="font-size:15px; font-weight:700;">${esc(companyName())}</div>
+          <div style="font-size:12px; color:var(--muted2);">${companyLogo() ? "Logotip o'rnatilgan" : "Logotip avtomatik yaratilgan"}</div>
+        </div>
+      </div>
+      <button class="btn-outline" onclick="openCompanySettingsModal()">Kompaniya nomi / logotipini o'zgartirish</button>
+    </div>
+
+    <div class="panel">
+      <h3>💾 Backup / Restore</h3>
+      <p style="font-size:13px; color:var(--muted3); margin-top:0;">Barcha ma'lumotlaringizni (mijozlar, qarzlar, to'lovlar, mahsulotlar, sozlamalar) bitta JSON faylga saqlab qo'ying — kompyuter almashtirilganda yoki ilova qayta o'rnatilganda shu fayl orqali tiklash mumkin.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn-gold" onclick="exportBackup()">Backup yaratish / Eksport qilish</button>
+        <button class="btn-outline" onclick="document.getElementById('restore-file-input').click()">Backup faylini tanlash va tiklash</button>
+      </div>
+      <input type="file" id="restore-file-input" accept=".json" style="display:none;" onchange="handleRestoreFile(event)">
+    </div>
+
+    <div class="panel">
+      <h3>🔐 PIN himoya</h3>
+      <p style="font-size:13px; color:var(--muted3); margin-top:0;">PIN yoqilsa, dastur ochilganda kod so'raladi. PIN hech qachon ochiq matn holida saqlanmaydi — faqat shifrlangan (hash) ko'rinishda saqlanadi.</p>
+      <div style="margin-bottom:12px; font-size:13px;">Holati: <b style="color:${pinOn?'var(--green)':'var(--muted2)'}">${pinOn ? "Yoqilgan" : "O'chirilgan"}</b></div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-outline" onclick="openPinSetupModal()">${pinOn ? "PINni o'zgartirish" : "PIN o'rnatish"}</button>
+        ${pinOn ? `<button class="btn-danger-text" onclick="openPinRemoveModal()">PINni o'chirish</button>` : ''}
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>⚠️ Ombor sozlamalari</h3>
+      <div class="field" style="max-width:220px;">
+        <label>Kam qoldiq chegarasi</label>
+        <input type="number" id="low-stock-threshold" value="${DATA.settings.lowStockThreshold ?? 5}" min="0" step="1" onchange="updateLowStockThreshold(this.value)">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>ℹ️ Dastur haqida</h3>
+      <div style="font-size:13px; color:var(--muted3);">${esc(companyName())} — Qarz Daftari. Barcha ma'lumotlar shu kompyuterda, brauzer xotirasida (localStorage) saqlanadi — internetga bog'liq emas.</div>
+    </div>
+  `;
+}
+function updateLowStockThreshold(v){
+  const n = parseInt(v,10);
+  DATA.settings.lowStockThreshold = isNaN(n) ? 5 : Math.max(0,n);
+  saveData();
+  toast("Sozlama saqlandi.", 'success');
+}
+
+/* ============ DARK / LIGHT REJIM (o'zgartirilmagan) ============ */
 function applyTheme(theme){
   if(theme === 'dark'){
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -1120,6 +2307,14 @@ function toggleTheme(){
 
 /* ============ BOSHLASH ============ */
 showDashboard();
+applyCompanyBranding();
+if(!DATA.settings.companyName){
+  // Birinchi marta ishga tushirilmoqda (yoki eski versiyadan yangilangan) —
+  // kompaniya nomi/logotipi so'raladi, shundan keyingina PIN qulfi tekshiriladi.
+  showCompanySetupScreen();
+}else{
+  initPinLock();
+}
 </script>
 </body>
 </html>
